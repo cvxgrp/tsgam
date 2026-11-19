@@ -30,7 +30,7 @@ def _(mo):
     mo.md(r"""
     # Solar PV direct multi-horizon forecast explorer
 
-    This notebook applies `TsgamForecastEstimator` to bundled five-minute PV data.
+    This notebook applies `ForecastEstimator` to bundled five-minute PV data.
     It uses POA irradiance observed at the forecast origin plus optional measured
     AC-power history. Each horizon is predicted directly; forecasts are never fed
     recursively into later horizons.
@@ -64,27 +64,27 @@ def _():
 
     from forecast_real_data_support import load_all_datasets
     from tsgam import (
-        TsgamEstimatorConfig,
-        TsgamForecastArConfig,
-        TsgamForecastConfig,
-        TsgamForecastCouplingConfig,
-        TsgamForecastEstimator,
-        TsgamLinearConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
+        EstimatorConfig,
+        ForecastArConfig,
+        ForecastConfig,
+        ForecastCouplingConfig,
+        ForecastEstimator,
+        LinearConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
         plot_forecast_origin,
     )
 
     sns.set_theme(style="whitegrid", context="notebook")
     return (
-        TsgamEstimatorConfig,
-        TsgamForecastArConfig,
-        TsgamForecastConfig,
-        TsgamForecastCouplingConfig,
-        TsgamForecastEstimator,
-        TsgamLinearConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
+        EstimatorConfig,
+        ForecastArConfig,
+        ForecastConfig,
+        ForecastCouplingConfig,
+        ForecastEstimator,
+        LinearConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
         load_all_datasets,
         mo,
         np,
@@ -199,14 +199,14 @@ def _(plt, solar_frame, train_end):
 
 @app.cell
 def _(
-    TsgamEstimatorConfig,
-    TsgamForecastArConfig,
-    TsgamForecastConfig,
-    TsgamForecastCouplingConfig,
-    TsgamForecastEstimator,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
+    EstimatorConfig,
+    ForecastArConfig,
+    ForecastConfig,
+    ForecastCouplingConfig,
+    ForecastEstimator,
+    LinearConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
     eval_end,
     np,
     pd,
@@ -235,50 +235,50 @@ def _(
     normalized_solar_history = solar_frame["target"] / solar_target_scale
 
     def solar_base_config():
-        return TsgamEstimatorConfig(
-            multi_periodic_config=TsgamMultiPeriodicConfig(
+        return EstimatorConfig(
+            multi_periodic_config=MultiPeriodicConfig(
                 num_harmonics=[4],
                 periods=[288.0],
                 reg_weight=1.0e-5,
             ),
             exog_config=[
-                TsgamLinearConfig(
+                LinearConfig(
                     lags=[0],
                     reg_weight=1.0e-5,
                     diff_reg_weight=0.0,
                 )
             ],
-            solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+            solver_config=SolverConfig(solver="CLARABEL", verbose=False),
         )
 
-    solar_baseline_model = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    solar_baseline_model = ForecastEstimator(
+        ForecastConfig(
             horizon=solar_horizon,
             base_config=solar_base_config(),
             mode="independent",
         )
     ).fit(solar_X_train, solar_y_train)
-    solar_independent_model = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    solar_independent_model = ForecastEstimator(
+        ForecastConfig(
             horizon=solar_horizon,
             base_config=solar_base_config(),
             mode="independent",
-            forecast_ar_config=TsgamForecastArConfig(
+            forecast_ar_config=ForecastArConfig(
                 lags=solar_target_lags,
                 reg_weight=1.0e-5,
             ),
         )
     ).fit(solar_X_train, solar_y_train)
-    solar_coupled_model = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    solar_coupled_model = ForecastEstimator(
+        ForecastConfig(
             horizon=solar_horizon,
             base_config=solar_base_config(),
             mode="coupled",
-            forecast_ar_config=TsgamForecastArConfig(
+            forecast_ar_config=ForecastArConfig(
                 lags=solar_target_lags,
                 reg_weight=1.0e-5,
             ),
-            coupling_config=TsgamForecastCouplingConfig(
+            coupling_config=ForecastCouplingConfig(
                 roughness_weight=0.01,
                 roughness_order=1,
             ),

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Test NaN handling in TsgamEstimator.
+Test NaN handling in Estimator.
 
 Tests that:
 1. NaN's in X are rejected by check_X_y
@@ -14,25 +14,25 @@ import pytest
 import numpy as np
 import pandas as pd
 from tsgam import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
+    Estimator,
+    EstimatorConfig,
+    LinearConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
 )
 
 
 @pytest.fixture
 def basic_config():
     """Basic configuration for testing."""
-    return TsgamEstimatorConfig(
-        multi_periodic_config=TsgamMultiPeriodicConfig(
+    return EstimatorConfig(
+        multi_periodic_config=MultiPeriodicConfig(
             num_harmonics=[6, 4, 3],
             periods=[365.2425 * 24, 7 * 24, 24]
         ),
         exog_config=None,
         ar_config=None,
-        solver_config=TsgamSolverConfig(solver='CLARABEL', verbose=False),
+        solver_config=SolverConfig(solver='CLARABEL', verbose=False),
         random_state=None,
         debug=False
     )
@@ -52,10 +52,10 @@ def test_timestamp_gap_is_missing_on_exogenous_offset_grid():
     timestamps = pd.date_range("2024-01-01", periods=8, freq="1h")
     keep = np.arange(8) != 3
     X = pd.DataFrame({"driver": np.arange(8.0)}, index=timestamps).loc[keep]
-    estimator = TsgamEstimator(
-        TsgamEstimatorConfig(
+    estimator = Estimator(
+        EstimatorConfig(
             multi_periodic_config=None,
-            exog_config=[TsgamLinearConfig(lags=[-1])],
+            exog_config=[LinearConfig(lags=[-1])],
         )
     ).fit(X, np.arange(8.0)[keep])
 
@@ -68,7 +68,7 @@ def test_timestamp_gap_is_missing_on_exogenous_offset_grid():
 def test_fit_rejects_nan_in_X(basic_config, basic_data):
     """Test that fit rejects NaN values in X via check_X_y."""
     X, y = basic_data
-    estimator = TsgamEstimator(config=basic_config)
+    estimator = Estimator(config=basic_config)
 
     # Add NaN to X
     X_with_nan = X.copy()
@@ -81,7 +81,7 @@ def test_fit_rejects_nan_in_X(basic_config, basic_data):
 def test_fit_rejects_nan_in_y(basic_config, basic_data):
     """Test that fit rejects NaN values in y via check_X_y."""
     X, y = basic_data
-    estimator = TsgamEstimator(config=basic_config)
+    estimator = Estimator(config=basic_config)
 
     # Add NaN to y
     y_with_nan = y.copy()
@@ -94,7 +94,7 @@ def test_fit_rejects_nan_in_y(basic_config, basic_data):
 def test_fit_rejects_multiple_nans_in_X(basic_config, basic_data):
     """Test that fit rejects multiple NaN values in X via check_X_y."""
     X, y = basic_data
-    estimator = TsgamEstimator(config=basic_config)
+    estimator = Estimator(config=basic_config)
 
     # Add multiple NaN's to X
     X_with_nan = X.copy()
@@ -109,7 +109,7 @@ def test_fit_rejects_multiple_nans_in_X(basic_config, basic_data):
 def test_fit_rejects_multiple_nans_in_y(basic_config, basic_data):
     """Test that fit rejects multiple NaN values in y via check_X_y."""
     X, y = basic_data
-    estimator = TsgamEstimator(config=basic_config)
+    estimator = Estimator(config=basic_config)
 
     # Add multiple NaN's to y
     y_with_nan = y.copy()
@@ -124,13 +124,13 @@ def test_fit_rejects_multiple_nans_in_y(basic_config, basic_data):
 def test_fit_rejects_nan_in_X_with_exog(basic_config, basic_data):
     """Test that fit rejects NaN values in X when exogenous variables are present via check_X_y."""
     # Add exog config
-    from tsgam import TsgamSplineConfig
+    from tsgam import SplineConfig
     basic_config.exog_config = [
-        TsgamSplineConfig(n_knots=10, lags=[0])
+        SplineConfig(n_knots=10, lags=[0])
     ]
 
     X, y = basic_data
-    estimator = TsgamEstimator(config=basic_config)
+    estimator = Estimator(config=basic_config)
 
     # Add NaN to X
     X_with_nan = X.copy()
@@ -143,7 +143,7 @@ def test_fit_rejects_nan_in_X_with_exog(basic_config, basic_data):
 def test_fit_works_without_nans(basic_config, basic_data):
     """Test that fit works correctly when there are no NaN's."""
     X, y = basic_data
-    estimator = TsgamEstimator(config=basic_config)
+    estimator = Estimator(config=basic_config)
 
     # Should not raise any errors
     estimator.fit(X, y)
@@ -156,7 +156,7 @@ def test_fit_works_without_nans(basic_config, basic_data):
 
 def test_fit_mask_includes_all_valid_rows(basic_config, basic_data):
     X, y = basic_data
-    estimator = TsgamEstimator(config=basic_config)
+    estimator = Estimator(config=basic_config)
 
     # Fit with valid data
     estimator.fit(X, y)

@@ -6,9 +6,9 @@ import pytest
 from signaldecomp import make_offset_basis, offset_source_mask
 
 from tsgam import (
-    TsgamEstimator, TsgamEstimatorConfig, TsgamForecastConfig,
-    TsgamForecastCouplingConfig, TsgamForecastEstimator, TsgamLinearConfig,
-    TsgamSolverConfig, TsgamSplineConfig,
+    Estimator, EstimatorConfig, ForecastConfig,
+    ForecastCouplingConfig, ForecastEstimator, LinearConfig,
+    SolverConfig, SplineConfig,
 )
 
 
@@ -18,10 +18,10 @@ def numerical_case(solver):
     z = rng.normal(size=len(x))
     X = pd.DataFrame({"x": x, "z": z}, index=pd.date_range("2024", periods=len(x), freq="1h"))
     y = 0.7 + np.sin(x) + 0.3 * np.sin(np.roll(x, 2)) + 0.2 * z
-    config = TsgamEstimatorConfig(None, [
-        TsgamSplineConfig(knots=[-2, -1, 0, 1, 2], lags=[-2, 0], reg_weight=0.02, diff_reg_weight=0.03),
-        TsgamLinearConfig(lags=[-3, 0], reg_weight=0.01),
-    ], solver_config=TsgamSolverConfig(
+    config = EstimatorConfig(None, [
+        SplineConfig(knots=[-2, -1, 0, 1, 2], lags=[-2, 0], reg_weight=0.02, diff_reg_weight=0.03),
+        LinearConfig(lags=[-3, 0], reg_weight=0.01),
+    ], solver_config=SolverConfig(
         solver=solver, verbose=False, solver_opts={"eps": 1e-7} if solver == "SCS" else {},
     ))
     return X, y, config
@@ -39,7 +39,7 @@ def test_whitening_preserves_weighted_gapped_original_problem(solver, driver_sca
     for whiten in [False, True]:
         cfg = deepcopy(config)
         cfg.exog_config[0].whiten = whiten
-        models.append(TsgamEstimator(cfg).fit(X.loc[keep], y[keep], sample_weight=weight[keep]))
+        models.append(Estimator(cfg).fit(X.loc[keep], y[keep], sample_weight=weight[keep]))
     raw, white = models
     mask = white.decomposition_["fit_mask"]
     drivers = X.to_numpy().copy()
@@ -67,7 +67,7 @@ def test_whitening_fails_closed_on_rank_deficient_spline():
     X["x"] = 0.5
     config.exog_config[0].whiten = True
     with pytest.raises(ValueError, match="rank"):
-        TsgamEstimator(config).fit(X, y)
+        Estimator(config).fit(X, y)
 
 
 @pytest.mark.parametrize("solver", ["CLARABEL", "SCS"])
@@ -77,9 +77,9 @@ def test_coupling_uses_original_coefficients_not_numerical_coordinates(solver):
     for whiten in [False, True]:
         cfg = deepcopy(config)
         cfg.exog_config[0].whiten = whiten
-        models.append(TsgamForecastEstimator(TsgamForecastConfig(
+        models.append(ForecastEstimator(ForecastConfig(
             horizon=3, mode="coupled", base_config=cfg,
-            coupling_config=TsgamForecastCouplingConfig(roughness_weight=0.3),
+            coupling_config=ForecastCouplingConfig(roughness_weight=0.3),
         )).fit(X, y))
     raw, white = models
     np.testing.assert_allclose(raw.problem_.value, white.problem_.value, rtol=1e-6)

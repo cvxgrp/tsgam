@@ -9,7 +9,7 @@ Exercises the full fit/predict/sample pipeline across:
 - Exog types: spline, linear, mixed (spline+linear)
 - Operations: fit, predict, sample (AR)
 
-Periods in TsgamMultiPeriodicConfig are specified in frequency-step units
+Periods in MultiPeriodicConfig are specified in frequency-step units
 (not hours): for 15-min data daily=96 steps, for daily data weekly=7 steps.
 """
 
@@ -18,13 +18,13 @@ import pandas as pd
 import pytest
 
 from tsgam import (
-    TsgamArConfig,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
+    ArConfig,
+    Estimator,
+    EstimatorConfig,
+    LinearConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
+    SplineConfig,
     get_recommended_periods,
 )
 
@@ -42,7 +42,7 @@ def _synth(freq: str, n_samples: int, n_exog: int = 1, seed: int = 42):
     return X, y
 
 
-SOLVER = TsgamSolverConfig(solver="CLARABEL", verbose=False)
+SOLVER = SolverConfig(solver="CLARABEL", verbose=False)
 
 # Periods are in frequency-step units:
 #   15-min  →  daily = 96 steps,  weekly = 672 steps
@@ -51,12 +51,12 @@ _FREQ_TABLE = {
     "15min": {
         "n_samples": 672,       # 7 days of 15-min data
         "expected_freq": "15min",
-        "multi": TsgamMultiPeriodicConfig(num_harmonics=[3, 2], periods=[96, 672]),
+        "multi": MultiPeriodicConfig(num_harmonics=[3, 2], periods=[96, 672]),
     },
     "1D": {
         "n_samples": 400,       # ~13 months of daily data
         "expected_freq": "1d",
-        "multi": TsgamMultiPeriodicConfig(num_harmonics=[3, 2], periods=[7, 365.2425]),
+        "multi": MultiPeriodicConfig(num_harmonics=[3, 2], periods=[7, 365.2425]),
     },
 }
 
@@ -81,16 +81,16 @@ def freq_setup(freq_key):
 def exog_cfg(request):
     """Single-element exog_config list."""
     if request.param == "spline":
-        return [TsgamSplineConfig(n_knots=5, lags=[0])]
-    return [TsgamLinearConfig(lags=[0])]
+        return [SplineConfig(n_knots=5, lags=[0])]
+    return [LinearConfig(lags=[0])]
 
 
 @pytest.fixture(params=["spline", "linear"], ids=["spline_lag", "linear_lag"])
 def exog_cfg_with_lags(request):
     """Single-element exog_config list with lead/lag terms."""
     if request.param == "spline":
-        return [TsgamSplineConfig(n_knots=5, lags=[-1, 0, 1])]
-    return [TsgamLinearConfig(lags=[-1, 0, 1])]
+        return [SplineConfig(n_knots=5, lags=[-1, 0, 1])]
+    return [LinearConfig(lags=[-1, 0, 1])]
 
 
 # ── frequency inference ──────────────────────────────────────────────────
@@ -101,23 +101,23 @@ class TestFrequencyInference:
 
     def test_inferred_freq(self, freq_setup):
         X, y, multi, expected_freq = freq_setup
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=multi,
             exog_config=None,
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         assert est.freq_ == expected_freq
 
     def test_time_indices_start_at_zero(self, freq_setup):
         X, y, multi, _ = freq_setup
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=multi,
             exog_config=None,
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         assert est.time_indices_[0] == 0
         assert est.time_indices_[-1] == len(X) - 1
@@ -131,12 +131,12 @@ class TestFourierOnly:
 
     def test_fit_predict(self, freq_setup):
         X, y, multi, _ = freq_setup
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=multi,
             exog_config=None,
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -151,12 +151,12 @@ class TestExogFitPredict:
 
     def test_with_fourier(self, freq_setup, exog_cfg):
         X, y, multi, _ = freq_setup
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=multi,
             exog_config=exog_cfg,
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -164,12 +164,12 @@ class TestExogFitPredict:
 
     def test_exog_only_no_fourier(self, freq_setup, exog_cfg):
         X, y, _, _ = freq_setup
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=None,
             exog_config=exog_cfg,
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -184,12 +184,12 @@ class TestExogWithLags:
 
     def test_with_lags(self, freq_setup, exog_cfg_with_lags):
         X, y, multi, _ = freq_setup
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=multi,
             exog_config=exog_cfg_with_lags,
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -206,15 +206,15 @@ class TestMixedExog:
     def test_spline_and_linear(self, freq_key):
         info = _FREQ_TABLE[freq_key]
         X, y = _synth(freq_key, info["n_samples"], n_exog=2)
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=info["multi"],
             exog_config=[
-                TsgamSplineConfig(n_knots=5, lags=[0]),
-                TsgamLinearConfig(lags=[0]),
+                SplineConfig(n_knots=5, lags=[0]),
+                LinearConfig(lags=[0]),
             ],
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -223,15 +223,15 @@ class TestMixedExog:
     def test_spline_and_linear_with_lags(self, freq_key):
         info = _FREQ_TABLE[freq_key]
         X, y = _synth(freq_key, info["n_samples"], n_exog=2)
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=info["multi"],
             exog_config=[
-                TsgamSplineConfig(n_knots=5, lags=[-1, 0, 1]),
-                TsgamLinearConfig(lags=[-1, 0, 1]),
+                SplineConfig(n_knots=5, lags=[-1, 0, 1]),
+                LinearConfig(lags=[-1, 0, 1]),
             ],
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -244,16 +244,16 @@ def test_interactions_with_non_hourly_data(freq_key):
     X, y = _synth(freq_key, info["n_samples"], n_exog=2)
     y = y + 0.8 * (X["x0"] * X["x1"]).to_numpy()
 
-    cfg = TsgamEstimatorConfig(
+    cfg = EstimatorConfig(
         multi_periodic_config=info["multi"],
         exog_config=[
-            TsgamLinearConfig(lags=[-1, 0, 1]),
-            TsgamLinearConfig(lags=[0, 1]),
+            LinearConfig(lags=[-1, 0, 1]),
+            LinearConfig(lags=[0, 1]),
         ],
         interaction_pairs=[(0, 1)],
         solver_config=SOLVER,
     )
-    est = TsgamEstimator(config=cfg)
+    est = Estimator(config=cfg)
     est.fit(X, y)
     preds = est.predict(X)
 
@@ -274,14 +274,14 @@ class TestArModel:
 
     def test_ar_sample(self, freq_setup, exog_cfg):
         X, y, multi, _ = freq_setup
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=multi,
             exog_config=exog_cfg,
-            ar_config=TsgamArConfig(lags=[1, 2]),
+            ar_config=ArConfig(lags=[1, 2]),
             solver_config=SOLVER,
             random_state=np.random.RandomState(0),
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -302,12 +302,12 @@ class TestTrainTestSplit:
         split = int(0.8 * len(X))
         X_train, y_train = X.iloc[:split], y[:split]
         X_test = X.iloc[split:]
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=multi,
             exog_config=exog_cfg,
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X_train, y_train)
         preds = est.predict(X_test)
         assert preds.shape == (len(X_test),)
@@ -324,12 +324,12 @@ class TestCoefShapes:
         info = _FREQ_TABLE[freq_key]
         X, y = _synth(freq_key, info["n_samples"])
         lags = [-1, 0, 1]
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=info["multi"],
-            exog_config=[TsgamSplineConfig(n_knots=5, lags=lags)],
+            exog_config=[SplineConfig(n_knots=5, lags=lags)],
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         coef = est.decomposition_["values"]["exog_0_coef"]
         assert coef.shape[1] == len(lags)
@@ -339,12 +339,12 @@ class TestCoefShapes:
         info = _FREQ_TABLE[freq_key]
         X, y = _synth(freq_key, info["n_samples"])
         lags = [-1, 0, 1]
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=info["multi"],
-            exog_config=[TsgamLinearConfig(lags=lags)],
+            exog_config=[LinearConfig(lags=lags)],
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         coef = est.decomposition_["values"]["exog_0_beta"]
         assert coef.shape == (len(lags),)
@@ -415,12 +415,12 @@ class TestRepeatedFit:
 
     def test_same_data_same_coefficients(self, freq_setup, exog_cfg):
         X, y, multi, _ = freq_setup
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=multi,
             exog_config=exog_cfg,
             solver_config=SOLVER,
         )
-        est = TsgamEstimator(config=cfg)
+        est = Estimator(config=cfg)
         est.fit(X, y)
         coefs_first = {
             k: np.copy(v) for k, v in est.decomposition_["values"].items()
@@ -441,15 +441,15 @@ class TestSampleWeight:
 
     def test_ones_matches_unweighted(self, freq_setup, exog_cfg):
         X, y, multi, _ = freq_setup
-        cfg = TsgamEstimatorConfig(
+        cfg = EstimatorConfig(
             multi_periodic_config=multi,
             exog_config=exog_cfg,
             solver_config=SOLVER,
         )
-        est_no_w = TsgamEstimator(config=cfg)
+        est_no_w = Estimator(config=cfg)
         est_no_w.fit(X, y)
 
-        est_ones = TsgamEstimator(config=cfg)
+        est_ones = Estimator(config=cfg)
         est_ones.fit(X, y, sample_weight=np.ones(len(y)))
 
         np.testing.assert_allclose(

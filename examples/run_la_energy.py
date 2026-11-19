@@ -45,13 +45,13 @@ from common_cli import (
 )
 
 from tsgam import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSplineConfig,
-    TsgamArConfig,
-    TsgamOutlierConfig,
-    TsgamSolverConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SplineConfig,
+    ArConfig,
+    OutlierConfig,
+    SolverConfig,
     PERIOD_HOURLY_DAILY,
     PERIOD_HOURLY_WEEKLY,
     PERIOD_HOURLY_YEARLY,
@@ -68,18 +68,18 @@ DEFAULT_TEST_START = '2018-12-01'
 DEFAULT_TEST_END = '2018-12-31'
 
 VAR_CONFIGS = {
-    'temperature_degF': TsgamSplineConfig(n_knots=10, lags=[0, 1, 2, 3], reg_weight=6e-5, diff_reg_weight=0.5),
-    'humidity_pc': TsgamSplineConfig(n_knots=8, lags=[0, 1, 2], reg_weight=6e-5, diff_reg_weight=0.5),
-    'global_Wpms': TsgamSplineConfig(n_knots=8, lags=[0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
-    'direct_Wpms': TsgamSplineConfig(n_knots=8, lags=[0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
-    'diffuse_Wpms': TsgamSplineConfig(n_knots=8, lags=[0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
+    'temperature_degF': SplineConfig(n_knots=10, lags=[0, 1, 2, 3], reg_weight=6e-5, diff_reg_weight=0.5),
+    'humidity_pc': SplineConfig(n_knots=8, lags=[0, 1, 2], reg_weight=6e-5, diff_reg_weight=0.5),
+    'global_Wpms': SplineConfig(n_knots=8, lags=[0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
+    'direct_Wpms': SplineConfig(n_knots=8, lags=[0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
+    'diffuse_Wpms': SplineConfig(n_knots=8, lags=[0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
 }
 
 
 def _build_exog_config(weather_cols: list[str]) -> list:
     out = []
     for c in weather_cols:
-        out.append(VAR_CONFIGS.get(c, TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5)))
+        out.append(VAR_CONFIGS.get(c, SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5)))
     return out
 
 
@@ -87,12 +87,12 @@ def _fit_single_la(cfg: dict) -> dict:
     """Fit one LA energy ablation config. Top-level for ThreadPoolExecutor."""
     name = cfg['name']
     try:
-        est = TsgamEstimator(config=TsgamEstimatorConfig(
+        est = Estimator(config=EstimatorConfig(
             multi_periodic_config=cfg['multi_periodic'],
             exog_config=cfg['exog'],
             ar_config=cfg['ar'],
             outlier_config=cfg['outlier'],
-            solver_config=TsgamSolverConfig(solver='CLARABEL', verbose=False),
+            solver_config=SolverConfig(solver='CLARABEL', verbose=False),
             random_state=42,
         ))
         est.fit(cfg['X_train'], cfg['y_tr'])
@@ -143,14 +143,14 @@ def _build_ablation_configs(
 
     _add('Baseline (constant only)')
 
-    all_harmonics = TsgamMultiPeriodicConfig(num_harmonics=[4, 4, 6], periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY], reg_weight=6e-5)
+    all_harmonics = MultiPeriodicConfig(num_harmonics=[4, 4, 6], periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY], reg_weight=6e-5)
 
     _add('Harmonics: Yearly only',
-         multi_periodic=TsgamMultiPeriodicConfig(num_harmonics=[4, 0, 0], periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY], reg_weight=6e-5))
+         multi_periodic=MultiPeriodicConfig(num_harmonics=[4, 0, 0], periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY], reg_weight=6e-5))
     _add('Harmonics: Weekly only',
-         multi_periodic=TsgamMultiPeriodicConfig(num_harmonics=[0, 4, 0], periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY], reg_weight=6e-5))
+         multi_periodic=MultiPeriodicConfig(num_harmonics=[0, 4, 0], periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY], reg_weight=6e-5))
     _add('Harmonics: Daily only',
-         multi_periodic=TsgamMultiPeriodicConfig(num_harmonics=[0, 0, 6], periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY], reg_weight=6e-5))
+         multi_periodic=MultiPeriodicConfig(num_harmonics=[0, 0, 6], periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY], reg_weight=6e-5))
     _add('Harmonics: All', multi_periodic=all_harmonics)
 
     if weather_cols:
@@ -158,9 +158,9 @@ def _build_ablation_configs(
         _add('Exogenous only', exog=exog_all, use_exog=True)
         _add('Harmonics (all) + Exogenous', multi_periodic=all_harmonics, exog=exog_all, use_exog=True)
         _add('Harmonics + Exogenous + AR', multi_periodic=all_harmonics, exog=exog_all,
-             ar=TsgamArConfig(lags=[1, 2, 3, 4], l1_constraint=0.97), use_exog=True)
+             ar=ArConfig(lags=[1, 2, 3, 4], l1_constraint=0.97), use_exog=True)
         _add('Harmonics + Exogenous + Outlier', multi_periodic=all_harmonics, exog=exog_all,
-             outlier=TsgamOutlierConfig(reg_weight=1e-4, period_hours=24.0), use_exog=True)
+             outlier=OutlierConfig(reg_weight=1e-4, period_hours=24.0), use_exog=True)
 
     return configs
 

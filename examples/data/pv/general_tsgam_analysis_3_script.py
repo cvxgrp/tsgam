@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Script version of general_tsgam_analysis_3.py using TsgamEstimator.
+Script version of general_tsgam_analysis_3.py using Estimator.
 
-This script replicates the notebook functionality but uses the TsgamEstimator
+This script replicates the notebook functionality but uses the Estimator
 class instead of manual CVXPY code. Easier to debug than the marimo notebook.
 """
 
@@ -26,12 +26,12 @@ from sklearn.metrics import r2_score
 from solardatatools import DataHandler
 
 from tsgam import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSplineConfig,
-    TsgamSolverConfig,
-    TsgamTrendConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SplineConfig,
+    SolverConfig,
+    TrendConfig,
     TrendType,
 )
 
@@ -168,9 +168,9 @@ def main(
     output_dir,
 ):
     """
-    TSGAM Analysis Script - Analyze time series data using TsgamEstimator.
+    TSGAM Analysis Script - Analyze time series data using Estimator.
 
-    This script replicates the notebook functionality but uses the TsgamEstimator
+    This script replicates the notebook functionality but uses the Estimator
     class instead of manual CVXPY code. Easier to debug than the marimo notebook.
     """
     # ============================================================================
@@ -424,7 +424,7 @@ def _fit_and_visualize_trend_model(
     _period_daily_hours = 24.0  # daily period in hours
     _period_yearly_hours = 365.2425 * 24.0  # yearly period in hours
 
-    multi_periodic_config = TsgamMultiPeriodicConfig(
+    multi_periodic_config = MultiPeriodicConfig(
         num_harmonics=[6, 10],
         periods=[_period_yearly_hours, _period_daily_hours],
         reg_weight=1e-2
@@ -432,12 +432,12 @@ def _fit_and_visualize_trend_model(
 
     # Exogenous variables: temperature and irradiance splines
     exog_config = [
-        TsgamSplineConfig(
+        SplineConfig(
             n_knots=10,
             lags=[0],
             reg_weight=1e-4
         ),
-        TsgamSplineConfig(
+        SplineConfig(
             n_knots=10,
             lags=[0],
             reg_weight=1e-4
@@ -455,20 +455,20 @@ def _fit_and_visualize_trend_model(
             'nonlinear_increasing': TrendType.NONLINEAR_INCREASING,
         }
         trend_type_enum = trend_type_map[trend_type]
-        trend_config = TsgamTrendConfig(
+        trend_config = TrendConfig(
             trend_type=trend_type_enum,
             grouping=24.0,  # Daily trend (period in hours)
             reg_weight=10.0
         )
 
     # Solver configuration
-    solver_config = TsgamSolverConfig(
+    solver_config = SolverConfig(
         solver=solver,
         verbose=True
     )
 
     # Create main config
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=multi_periodic_config,
         exog_config=exog_config,
         trend_config=trend_config,
@@ -476,7 +476,7 @@ def _fit_and_visualize_trend_model(
     )
 
     print("Creating estimator...")
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
 
     print("Fitting model...")
     try:

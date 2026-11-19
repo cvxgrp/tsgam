@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Test TsgamLinearConfig support in TsgamEstimator.
+Test LinearConfig support in Estimator.
 
-Tests that TsgamLinearConfig works correctly for fit, predict, and sample,
-both alone and mixed with TsgamSplineConfig.
+Tests that LinearConfig works correctly for fit, predict, and sample,
+both alone and mixed with SplineConfig.
 """
 
 import numpy as np
@@ -14,13 +14,13 @@ import pytest
 from signaldecomp import make_offset_basis
 
 from tsgam import (
-    TsgamArConfig,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
+    ArConfig,
+    Estimator,
+    EstimatorConfig,
+    LinearConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
+    SplineConfig,
 )
 
 
@@ -51,10 +51,10 @@ def test_exogenous_offset_sign_convention():
 def test_explicit_spline_knots_fit_and_are_preserved():
     X, y = _make_data(n_samples=80)
     knots = np.linspace(X["x0"].min(), X["x0"].max(), 5)
-    estimator = TsgamEstimator(
-        TsgamEstimatorConfig(
+    estimator = Estimator(
+        EstimatorConfig(
             multi_periodic_config=None,
-            exog_config=[TsgamSplineConfig(n_knots=None, knots=knots)],
+            exog_config=[SplineConfig(n_knots=None, knots=knots)],
         )
     ).fit(X, y)
 
@@ -63,18 +63,18 @@ def test_explicit_spline_knots_fit_and_are_preserved():
 
 @pytest.fixture
 def solver_config():
-    return TsgamSolverConfig(solver="CLARABEL", verbose=False)
+    return SolverConfig(solver="CLARABEL", verbose=False)
 
 
 class TestLinearConfigFitPredict:
     def test_single_linear_exog(self, solver_config):
         X, y = _make_data()
-        config = TsgamEstimatorConfig(
+        config = EstimatorConfig(
             multi_periodic_config=None,
-            exog_config=[TsgamLinearConfig(lags=[0])],
+            exog_config=[LinearConfig(lags=[0])],
             solver_config=solver_config,
         )
-        est = TsgamEstimator(config=config)
+        est = Estimator(config=config)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -82,12 +82,12 @@ class TestLinearConfigFitPredict:
 
     def test_linear_exog_with_lags(self, solver_config):
         X, y = _make_data()
-        config = TsgamEstimatorConfig(
+        config = EstimatorConfig(
             multi_periodic_config=None,
-            exog_config=[TsgamLinearConfig(lags=[-1, 0, 1])],
+            exog_config=[LinearConfig(lags=[-1, 0, 1])],
             solver_config=solver_config,
         )
-        est = TsgamEstimator(config=config)
+        est = Estimator(config=config)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -96,14 +96,14 @@ class TestLinearConfigFitPredict:
 
     def test_linear_with_fourier(self, solver_config):
         X, y = _make_data()
-        config = TsgamEstimatorConfig(
-            multi_periodic_config=TsgamMultiPeriodicConfig(
+        config = EstimatorConfig(
+            multi_periodic_config=MultiPeriodicConfig(
                 num_harmonics=[3], periods=[24]
             ),
-            exog_config=[TsgamLinearConfig(lags=[0])],
+            exog_config=[LinearConfig(lags=[0])],
             solver_config=solver_config,
         )
-        est = TsgamEstimator(config=config)
+        est = Estimator(config=config)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -111,15 +111,15 @@ class TestLinearConfigFitPredict:
 
     def test_mixed_spline_and_linear(self, solver_config):
         X, y = _make_data(n_exog=2)
-        config = TsgamEstimatorConfig(
+        config = EstimatorConfig(
             multi_periodic_config=None,
             exog_config=[
-                TsgamSplineConfig(n_knots=5, lags=[0]),
-                TsgamLinearConfig(lags=[0]),
+                SplineConfig(n_knots=5, lags=[0]),
+                LinearConfig(lags=[0]),
             ],
             solver_config=solver_config,
         )
-        est = TsgamEstimator(config=config)
+        est = Estimator(config=config)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -127,13 +127,13 @@ class TestLinearConfigFitPredict:
 
     def test_linear_with_ar(self, solver_config):
         X, y = _make_data()
-        config = TsgamEstimatorConfig(
+        config = EstimatorConfig(
             multi_periodic_config=None,
-            exog_config=[TsgamLinearConfig(lags=[0])],
-            ar_config=TsgamArConfig(lags=[1]),
+            exog_config=[LinearConfig(lags=[0])],
+            ar_config=ArConfig(lags=[1]),
             solver_config=solver_config,
         )
-        est = TsgamEstimator(config=config)
+        est = Estimator(config=config)
         est.fit(X, y)
         preds = est.predict(X)
         assert preds.shape == (len(X),)
@@ -141,14 +141,14 @@ class TestLinearConfigFitPredict:
 
     def test_linear_sample(self, solver_config):
         X, y = _make_data()
-        config = TsgamEstimatorConfig(
+        config = EstimatorConfig(
             multi_periodic_config=None,
-            exog_config=[TsgamLinearConfig(lags=[0])],
-            ar_config=TsgamArConfig(lags=[1]),
+            exog_config=[LinearConfig(lags=[0])],
+            ar_config=ArConfig(lags=[1]),
             solver_config=solver_config,
             random_state=np.random.RandomState(0),
         )
-        est = TsgamEstimator(config=config)
+        est = Estimator(config=config)
         est.fit(X, y)
         samples = est.sample(X, n_samples=5)
         assert samples.shape == (5, len(X))
@@ -158,12 +158,12 @@ class TestLinearConfigFitPredict:
         """Linear config should produce (1, num_lags) coefficient matrix."""
         X, y = _make_data()
         lags = [-1, 0, 1]
-        config = TsgamEstimatorConfig(
+        config = EstimatorConfig(
             multi_periodic_config=None,
-            exog_config=[TsgamLinearConfig(lags=lags)],
+            exog_config=[LinearConfig(lags=lags)],
             solver_config=solver_config,
         )
-        est = TsgamEstimator(config=config)
+        est = Estimator(config=config)
         est.fit(X, y)
         coef = est.decomposition_["values"]["exog_0_beta"]
         assert coef.shape == (len(lags),)

@@ -43,12 +43,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 from tsgam import (
     PERIOD_HOURLY_YEARLY,
     TrendType,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
-    TsgamTrendConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
+    SplineConfig,
+    TrendConfig,
 )
 
 
@@ -128,9 +128,9 @@ TIDAL_CONSTITUENT_HARMONICS = OrderedDict(
 TIDAL_COMPONENT_LABELS = list(TIDAL_CONSTITUENT_PERIODS_HOURS.keys())
 
 
-def make_constituent_multi_periodic(samples_per_hour: float) -> TsgamMultiPeriodicConfig:
+def make_constituent_multi_periodic(samples_per_hour: float) -> MultiPeriodicConfig:
     """Build the shared constituent-aware Fourier config on the fit-time sample grid."""
-    return TsgamMultiPeriodicConfig(
+    return MultiPeriodicConfig(
         num_harmonics=list(TIDAL_CONSTITUENT_HARMONICS.values()),
         periods=[p * samples_per_hour for p in TIDAL_CONSTITUENT_PERIODS_HOURS.values()],
         reg_weight=1e-5,
@@ -878,20 +878,20 @@ def main():
         X_test = pd.DataFrame(index=df_test.index)
 
     spline_map = {
-        'pressure': TsgamSplineConfig(
+        'pressure': SplineConfig(
             n_knots=10, lags=[-2, -1, 0, 1],
             reg_weight=1e-5, diff_reg_weight=0.3,
         ),
-        'wind_u': TsgamSplineConfig(
+        'wind_u': SplineConfig(
             n_knots=8, lags=[-1, 0, 1],
             reg_weight=1e-5, diff_reg_weight=0.3,
         ),
-        'wind_v': TsgamSplineConfig(
+        'wind_v': SplineConfig(
             n_knots=8, lags=[-1, 0, 1],
             reg_weight=1e-5, diff_reg_weight=0.3,
         ),
     }
-    default_spline = TsgamSplineConfig(
+    default_spline = SplineConfig(
         n_knots=8, lags=[0], reg_weight=1e-5, diff_reg_weight=0.3,
     )
     exog_config = [spline_map.get(c, default_spline) for c in met_cols]
@@ -899,14 +899,14 @@ def main():
     # Scale Fourier periods to the data's sampling rate
     freq_td = df.index.to_series().diff().median()
     sph = max(1, round(pd.Timedelta('1h') / freq_td))
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=make_constituent_multi_periodic(sph),
         exog_config=exog_config or None,
-        trend_config=TsgamTrendConfig(
+        trend_config=TrendConfig(
             trend_type=TrendType.LINEAR,
             grouping=24.0 * sph,
         ),
-        solver_config=TsgamSolverConfig(solver='SCS', verbose=False),
+        solver_config=SolverConfig(solver='SCS', verbose=False),
         random_state=42,
     )
 
@@ -914,7 +914,7 @@ def main():
     print(f'Testing on {len(df_test)} samples ({test_start} to {test_end})')
     print(f'Regressors: {met_cols if met_cols else "none (Fourier only)"}')
 
-    est = TsgamEstimator(config=config)
+    est = Estimator(config=config)
     print('Fitting model ...')
     est.fit(X_train, y_train)
     print(f'Solver status: {est.problem_.status}')

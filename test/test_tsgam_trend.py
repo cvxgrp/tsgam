@@ -15,13 +15,13 @@ import pytest
 
 from tsgam import (
     TrendType,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamSolverConfig,
-    TsgamTrendConfig,
+    Estimator,
+    EstimatorConfig,
+    SolverConfig,
+    TrendConfig,
 )
 
-SOLVER = TsgamSolverConfig(solver="CLARABEL", verbose=False)
+SOLVER = SolverConfig(solver="CLARABEL", verbose=False)
 TREND_TOL = 1.0e-6
 
 
@@ -37,13 +37,13 @@ def _make_trend_data(n_samples=720, seed=42):
 @pytest.fixture(params=[TrendType.LINEAR, TrendType.NONLINEAR], ids=["linear", "nonlinear"])
 def fitted(request):
     X, y = _make_trend_data()
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=None,
         exog_config=None,
-        trend_config=TsgamTrendConfig(trend_type=request.param),
+        trend_config=TrendConfig(trend_type=request.param),
         solver_config=SOLVER,
     )
-    est = TsgamEstimator(config=config)
+    est = Estimator(config=config)
     est.fit(X, y)
     return est, X
 
@@ -131,17 +131,17 @@ def _make_monotonic_trend_data(
 
 def _fit_constrained_trend(trend_type: TrendType, direction: str) -> np.ndarray:
     X, y = _make_monotonic_trend_data(direction)
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=None,
         exog_config=None,
-        trend_config=TsgamTrendConfig(
+        trend_config=TrendConfig(
             trend_type=trend_type,
             grouping=24.0,
             reg_weight=1.0,
         ),
         solver_config=SOLVER,
     )
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
     estimator.fit(X, y)
     trend = estimator.decomposition_["values"]["trend_group_values"]
     return np.asarray(trend, dtype=float)

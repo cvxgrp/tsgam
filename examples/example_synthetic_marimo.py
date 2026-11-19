@@ -74,7 +74,7 @@ def _():
         synthetic_metrics,
         true_regressor_response_frame,
     )
-    from tsgam import TsgamEstimator
+    from tsgam import Estimator
 
     return (
         SyntheticDriverNoiseDistribution,
@@ -87,7 +87,7 @@ def _():
         SyntheticRegressorSpec,
         SyntheticTrendKind,
         SyntheticTrendSpec,
-        TsgamEstimator,
+        Estimator,
         alt,
         build_estimator_config,
         component_fit_quality_rows,
@@ -1359,7 +1359,7 @@ def _(mo):
 
 @app.cell
 def _(
-    TsgamEstimator,
+    Estimator,
     component_fit_quality_rows,
     component_fit_stat_rows,
     contextlib,
@@ -1396,7 +1396,7 @@ def _(
             }
         else:
             try:
-                estimator = TsgamEstimator(config=current_estimator_config)
+                estimator = Estimator(config=current_estimator_config)
                 with contextlib.redirect_stdout(_solver_log_buffer), contextlib.redirect_stderr(
                     _solver_log_buffer
                 ):

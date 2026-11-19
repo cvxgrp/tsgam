@@ -26,12 +26,12 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from tsgam import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSplineConfig,
-    TsgamArConfig,
-    TsgamSolverConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SplineConfig,
+    ArConfig,
+    SolverConfig,
     PERIOD_HOURLY_DAILY,
     PERIOD_HOURLY_WEEKLY,
     PERIOD_HOURLY_YEARLY,
@@ -198,7 +198,7 @@ def fit_model_with_variables(X_train, y_train, X_test, y_test, variable_names, c
         Mean absolute percentage error on test set.
     """
     # Default configuration
-    multi_periodic_config = TsgamMultiPeriodicConfig(
+    multi_periodic_config = MultiPeriodicConfig(
         num_harmonics=[8, 6, 4],
         periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
         reg_weight=6e-5
@@ -210,10 +210,10 @@ def fit_model_with_variables(X_train, y_train, X_test, y_test, variable_names, c
 
     # Default configs for each variable type
     configs = {
-        'temperature': TsgamSplineConfig(n_knots=12, lags=[-2, -1, 0, 1, 2], reg_weight=6e-5, diff_reg_weight=0.5),
-        'dewpoint': TsgamSplineConfig(n_knots=10, lags=[-1, 0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
-        'wind_speed': TsgamSplineConfig(n_knots=8, lags=[0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
-        'pressure': TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),
+        'temperature': SplineConfig(n_knots=12, lags=[-2, -1, 0, 1, 2], reg_weight=6e-5, diff_reg_weight=0.5),
+        'dewpoint': SplineConfig(n_knots=10, lags=[-1, 0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
+        'wind_speed': SplineConfig(n_knots=8, lags=[0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
+        'pressure': SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),
     }
 
     # Apply configs in order
@@ -222,7 +222,7 @@ def fit_model_with_variables(X_train, y_train, X_test, y_test, variable_names, c
             exog_config.append(configs[var_name])
         else:
             # Default config for unknown variables
-            exog_config.append(TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
+            exog_config.append(SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
 
     # Apply overrides if provided
     if config_overrides:
@@ -231,15 +231,15 @@ def fit_model_with_variables(X_train, y_train, X_test, y_test, variable_names, c
                 cfg.reg_weight = config_overrides['reg_weight']
         if 'n_knots' in config_overrides:
             for i, cfg in enumerate(exog_config):
-                if isinstance(cfg, TsgamSplineConfig):
+                if isinstance(cfg, SplineConfig):
                     cfg.n_knots = config_overrides['n_knots'][i] if isinstance(config_overrides['n_knots'], list) else config_overrides['n_knots']
 
     # For ablation study, skip AR model to avoid solver issues and speed up
     # AR model will be used in the full model fit
     ar_config = None  # Disable AR for ablation study
-    solver_config = TsgamSolverConfig(solver='CLARABEL', verbose=False)
+    solver_config = SolverConfig(solver='CLARABEL', verbose=False)
 
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=multi_periodic_config,
         exog_config=exog_config if n_vars > 0 else None,
         ar_config=ar_config,
@@ -248,7 +248,7 @@ def fit_model_with_variables(X_train, y_train, X_test, y_test, variable_names, c
         debug=False
     )
 
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
     estimator.fit(X_train, y_train)
 
     # Make predictions
@@ -655,7 +655,7 @@ def main():
     # Multi-periodic Fourier basis for seasonal patterns
     # Daily (24h), weekly (168h), yearly (8766h) patterns
     # Increased harmonics for better seasonal pattern capture
-    multi_periodic_config = TsgamMultiPeriodicConfig(
+    multi_periodic_config = MultiPeriodicConfig(
         num_harmonics=[8, 6, 4],  # Balanced: 8 for daily, 6 for weekly, 4 for yearly
         periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
         reg_weight=6e-5  # Higher regularization for stability with multiple variables
@@ -664,25 +664,25 @@ def main():
     # Spline configuration for exogenous variables
     # Use conservative settings to avoid numerical issues while capturing key relationships
     exog_config = [
-        TsgamSplineConfig(
+        SplineConfig(
             n_knots=12,  # Temperature: 12 knots (reduced from 15 for stability)
             lags=[-2, -1, 0, 1, 2],  # Temperature effects with moderate lags
             reg_weight=6e-5,  # Higher regularization for stability
             diff_reg_weight=0.5
         ),
-        TsgamSplineConfig(
+        SplineConfig(
             n_knots=10,  # Dewpoint: 10 knots for humidity effects
             lags=[-1, 0, 1],  # Dewpoint effects with some lag
             reg_weight=6e-5,
             diff_reg_weight=0.5
         ),
-        TsgamSplineConfig(
+        SplineConfig(
             n_knots=8,  # Wind speed: 8 knots for dispersion effects
             lags=[0, 1],  # Wind speed effects
             reg_weight=6e-5,
             diff_reg_weight=0.5
         ),
-        TsgamSplineConfig(
+        SplineConfig(
             n_knots=8,  # Pressure: 8 knots for atmospheric stability effects
             lags=[0],  # Pressure typically immediate effect
             reg_weight=6e-5,
@@ -692,19 +692,19 @@ def main():
 
     # AR model for residual temporal dependencies
     # More AR lags to capture longer-term dependencies
-    ar_config = TsgamArConfig(
+    ar_config = ArConfig(
         lags=[1, 2, 3, 4],  # AR(4) model for better residual modeling
         l1_constraint=0.97  # Balanced constraint
     )
 
     # Solver configuration
-    solver_config = TsgamSolverConfig(
+    solver_config = SolverConfig(
         solver='CLARABEL',
         verbose=False  # Set to True for debugging
     )
 
     # Create main config
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=multi_periodic_config,
         exog_config=exog_config,
         ar_config=ar_config,
@@ -715,7 +715,7 @@ def main():
 
     # Create and fit estimator
     print("\nCreating and fitting TSGAM estimator...")
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
 
     print("Fitting model (this may take a few minutes)...")
     estimator.fit(X_train, y_train)

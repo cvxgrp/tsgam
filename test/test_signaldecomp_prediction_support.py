@@ -8,12 +8,12 @@ from signaldecomp import components_to_frame
 from tsgam._design import _make_fourier_basis
 
 from tsgam import (
-    TsgamArConfig, TsgamEstimator, TsgamEstimatorConfig,
-    TsgamLinearConfig, TsgamSolverConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSplineConfig, TsgamForecastEstimator, TsgamForecastConfig,
-    TsgamForecastCouplingConfig,
-    TsgamTrendConfig, TsgamOutlierConfig, TrendType,
+    ArConfig, Estimator, EstimatorConfig,
+    LinearConfig, SolverConfig,
+    MultiPeriodicConfig,
+    SplineConfig, ForecastEstimator, ForecastConfig,
+    ForecastCouplingConfig,
+    TrendConfig, OutlierConfig, TrendType,
 )
 
 
@@ -23,12 +23,12 @@ def test_native_decomposition_reconstructs_weighted_gapped_signal():
     x = rng.normal(size=len(index))
     y = 2 + 0.5 * x + np.sin(np.arange(len(index)) / 5) + rng.normal(scale=0.1, size=len(index))
     keep = np.arange(len(index)) != 30
-    model = TsgamEstimator(TsgamEstimatorConfig(
-        TsgamMultiPeriodicConfig(periods=[30], num_harmonics=[1]),
-        [TsgamLinearConfig(lags=[-1, 0])],
-        trend_config=TsgamTrendConfig(trend_type=TrendType.LINEAR, grouping=10),
-        outlier_config=TsgamOutlierConfig(period_hours=10, reg_weight=0.1),
-        solver_config=TsgamSolverConfig(verbose=False),
+    model = Estimator(EstimatorConfig(
+        MultiPeriodicConfig(periods=[30], num_harmonics=[1]),
+        [LinearConfig(lags=[-1, 0])],
+        trend_config=TrendConfig(trend_type=TrendType.LINEAR, grouping=10),
+        outlier_config=OutlierConfig(period_hours=10, reg_weight=0.1),
+        solver_config=SolverConfig(verbose=False),
     )).fit(pd.DataFrame({"x": x[keep]}, index=index[keep]), y[keep],
            sample_weight=rng.uniform(0.1, 2, keep.sum()))
     out = model.decomposition_
@@ -46,7 +46,7 @@ def test_native_decomposition_reconstructs_weighted_gapped_signal():
 def test_ar_nonoptimal_status_does_not_publish_coefficients(monkeypatch, status):
     import cvxpy
 
-    model = TsgamEstimator(TsgamEstimatorConfig(None, None, ar_config=TsgamArConfig([1])))
+    model = Estimator(EstimatorConfig(None, None, ar_config=ArConfig([1])))
     model.decomposition_ = {
         "fit_mask": np.ones(10, dtype=bool),
         "values": {"residual": np.linspace(-1, 1, 10)},
@@ -69,12 +69,12 @@ def test_coupled_prediction_reuses_bases_and_detaches_solver_values(monkeypatch)
         {"x": np.sin(np.arange(80) / 3)},
         index=pd.date_range("2024", periods=80, freq="1h"),
     )
-    model = TsgamForecastEstimator(TsgamForecastConfig(
+    model = ForecastEstimator(ForecastConfig(
         horizon=3, mode="coupled",
-        coupling_config=TsgamForecastCouplingConfig(roughness_weight=1),
-        base_config=TsgamEstimatorConfig(
-            None, [TsgamSplineConfig(n_knots=5)],
-            solver_config=TsgamSolverConfig(verbose=False),
+        coupling_config=ForecastCouplingConfig(roughness_weight=1),
+        base_config=EstimatorConfig(
+            None, [SplineConfig(n_knots=5)],
+            solver_config=SolverConfig(verbose=False),
         ),
     )).fit(X, X.x.to_numpy() ** 2)
     expected = model.predict(X.iloc[-10:])
@@ -95,8 +95,8 @@ def test_coupled_prediction_reuses_bases_and_detaches_solver_values(monkeypatch)
 @pytest.mark.parametrize("start", [0, 37, 87672, -37])
 def test_fourier_window_preserves_absolute_phase_and_cross_terms(start):
     periods, harmonics = [167.5, 24], [2, 3]
-    config = TsgamEstimatorConfig(
-        TsgamMultiPeriodicConfig(periods=periods, num_harmonics=harmonics), None,
+    config = EstimatorConfig(
+        MultiPeriodicConfig(periods=periods, num_harmonics=harmonics), None,
     )
     times = np.arange(start, start + 10)
     actual = _make_fourier_basis(config, times)
@@ -114,7 +114,7 @@ def test_fourier_window_preserves_absolute_phase_and_cross_terms(start):
 
 
 def test_batched_ar_samples_preserve_seed_and_filter_state():
-    model = TsgamEstimator(TsgamEstimatorConfig(None, None, ar_config=TsgamArConfig([1, 3])))
+    model = Estimator(EstimatorConfig(None, None, ar_config=ArConfig([1, 3])))
     model.ar_coef_ = np.array([0.1, 0.6])
     model.ar_intercept_ = 0.2
     model.ar_noise_loc_, model.ar_noise_scale_ = 0.1, 0.3
@@ -137,9 +137,9 @@ def test_interaction_prediction_accepts_single_rows_and_constant_drivers():
     X = pd.DataFrame(rng.normal(size=(80, 2)), columns=['x', 'z'],
                      index=pd.date_range('2024-01-01', periods=80, freq='h'))
     y = 1 + 2 * X.x + 3 * X.z + X.x * X.z
-    est = TsgamEstimator(TsgamEstimatorConfig(
-        None, [TsgamLinearConfig(reg_weight=0), TsgamLinearConfig(reg_weight=0)],
-        interaction_pairs=[(0, 1)], solver_config=TsgamSolverConfig(verbose=False),
+    est = Estimator(EstimatorConfig(
+        None, [LinearConfig(reg_weight=0), LinearConfig(reg_weight=0)],
+        interaction_pairs=[(0, 1)], solver_config=SolverConfig(verbose=False),
     )).fit(X, y)
     for query in (X.iloc[[20]], X.iloc[:10].assign(x=1.0)):
         np.testing.assert_allclose(est.predict(query),
@@ -152,16 +152,16 @@ def test_offset_prediction_requires_padding_and_ar_does_not_bridge_gaps():
     X = pd.DataFrame({'x': rng.normal(size=80)},
                      index=pd.date_range('2024-01-01', periods=80, freq='h'))
     y = 1 + np.r_[0, 2 * X.x.to_numpy()[:-1]]
-    est = TsgamEstimator(TsgamEstimatorConfig(
-        None, [TsgamLinearConfig(lags=[-1], reg_weight=0)],
-        solver_config=TsgamSolverConfig(verbose=False),
+    est = Estimator(EstimatorConfig(
+        None, [LinearConfig(lags=[-1], reg_weight=0)],
+        solver_config=SolverConfig(verbose=False),
     )).fit(X, y)
     assert np.isnan(est.predict(X.iloc[20:30])[0])
     np.testing.assert_allclose(est.predict(X.iloc[19:30])[1:], y[20:30], atol=1e-6)
     assert np.isfinite(est.predict(X.iloc[20:30], remove_exogenous=True)).all()
-    ar = TsgamEstimator(TsgamEstimatorConfig(
-        None, None, ar_config=TsgamArConfig([1, 3]), debug=True,
-        solver_config=TsgamSolverConfig(verbose=False),
+    ar = Estimator(EstimatorConfig(
+        None, None, ar_config=ArConfig([1, 3]), debug=True,
+        solver_config=SolverConfig(verbose=False),
     )).fit(X.drop(X.index[20:40]), rng.normal(size=60))
     assert len(ar._baseline_residuals_) == 80
     assert not ar._ar_valid_mask_[20:43].any()

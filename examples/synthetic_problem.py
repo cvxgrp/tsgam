@@ -12,13 +12,13 @@ from signaldecomp.basis import make_basis_matrix
 
 from tsgam import (
     TrendType,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
-    TsgamTrendConfig,
+    Estimator,
+    EstimatorConfig,
+    LinearConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
+    SplineConfig,
+    TrendConfig,
 )
 from tsgam._design import (
     _ensure_sorted_index,
@@ -445,7 +445,7 @@ def regressor_inspection_frame(problem: SyntheticProblemResult) -> pd.DataFrame:
 
 def estimator_config_rows(
     config: SyntheticProblemConfig,
-    estimator_config: TsgamEstimatorConfig,
+    estimator_config: EstimatorConfig,
 ) -> list[dict[str, str]]:
     """Describe the estimator form that will be fit for a synthetic config."""
     rows = [
@@ -493,7 +493,7 @@ def estimator_config_rows(
     for spec, exog_cfg in zip(config.regressors, exog_config, strict=True):
         lags = f"lags {exog_cfg.lags}"
         reg = f"reg {_format_compact_float(exog_cfg.reg_weight)}"
-        if isinstance(exog_cfg, TsgamSplineConfig):
+        if isinstance(exog_cfg, SplineConfig):
             value = f"spline, {exog_cfg.n_knots} knots, {lags}, {reg}"
         else:
             value = f"linear, {lags}, {reg}"
@@ -867,7 +867,7 @@ def build_estimator_config(
     spline_reg_weight: float = 1.0e-4,
     spline_diff_reg_weight: float = 1.0,
     trend_reg_weight: float = 0.1,
-) -> TsgamEstimatorConfig:
+) -> EstimatorConfig:
     multi_periodic_config = None
     if config.periodic_components:
         _validate_periodic_component_sampling(config)
@@ -875,20 +875,20 @@ def build_estimator_config(
             _period_sample_count(component.period_hours, config.freq)
             for component in config.periodic_components
         ]
-        multi_periodic_config = TsgamMultiPeriodicConfig(
+        multi_periodic_config = MultiPeriodicConfig(
             num_harmonics=[component.harmonics for component in config.periodic_components],
             periods=sample_periods,
             reg_weight=fourier_reg_weight,
         )
 
-    exog_config: list[TsgamLinearConfig | TsgamSplineConfig] | None = None
+    exog_config: list[LinearConfig | SplineConfig] | None = None
     if config.regressors:
         exog_config = []
         for spec in config.regressors:
             lags = list(spec.lags)
             if spec.relationship == SyntheticRegressorRelationship.LINEAR:
                 exog_config.append(
-                    TsgamLinearConfig(
+                    LinearConfig(
                         lags=lags,
                         reg_weight=linear_reg_weight,
                         diff_reg_weight=spline_diff_reg_weight,
@@ -896,7 +896,7 @@ def build_estimator_config(
                 )
             else:
                 exog_config.append(
-                    TsgamSplineConfig(
+                    SplineConfig(
                         n_knots=spec.n_knots,
                         lags=lags,
                         reg_weight=spline_reg_weight,
@@ -914,17 +914,17 @@ def build_estimator_config(
             trend_type = TrendType.NONLINEAR_DEC
         else:
             trend_type = TrendType.NONLINEAR
-        trend_config = TsgamTrendConfig(
+        trend_config = TrendConfig(
             trend_type=trend_type,
             grouping=grouping_samples(config.trend.grouping_hours, config.freq),
             reg_weight=trend_reg_weight,
         )
 
-    return TsgamEstimatorConfig(
+    return EstimatorConfig(
         multi_periodic_config=multi_periodic_config,
         exog_config=exog_config,
         trend_config=trend_config,
-        solver_config=TsgamSolverConfig(solver=solver_name, verbose=solver_verbose),
+        solver_config=SolverConfig(solver=solver_name, verbose=solver_verbose),
         random_state=config.seed,
     )
 
@@ -953,7 +953,7 @@ def _coefficient_value(value: object, label: str) -> np.ndarray:
     return coefficients
 
 
-def _fourier_contribution(estimator: TsgamEstimator, time_indices: np.ndarray) -> np.ndarray:
+def _fourier_contribution(estimator: Estimator, time_indices: np.ndarray) -> np.ndarray:
     if estimator.config.multi_periodic_config is None:
         return np.zeros(len(time_indices), dtype=float)
 
@@ -1030,7 +1030,7 @@ def _periodic_basis_blocks(
 
 def fourier_coefficient_frame(
     config: SyntheticProblemConfig,
-    estimator: TsgamEstimator,
+    estimator: Estimator,
 ) -> pd.DataFrame:
     """Compare synthetic truth Fourier coefficients with fitted coefficients."""
     columns = [
@@ -1073,7 +1073,7 @@ def fourier_coefficient_frame(
 
 def cross_basis_coefficient_frame(
     config: SyntheticProblemConfig,
-    estimator: TsgamEstimator,
+    estimator: Estimator,
 ) -> pd.DataFrame:
     """Compare synthetic periodic cross-term coefficients with fitted cross basis."""
     columns = [
@@ -1215,7 +1215,7 @@ def true_regressor_response_frame(
 
 
 def regressor_response_frame(
-    estimator: TsgamEstimator,
+    estimator: Estimator,
     problem: SyntheticProblemResult,
     *,
     grid_size: int = 100,
@@ -1240,7 +1240,7 @@ def regressor_response_frame(
         exog_cfg = exog_config[ix]
         stored_knots = (
             estimator.exog_knots_[ix]
-            if isinstance(exog_cfg, TsgamSplineConfig)
+            if isinstance(exog_cfg, SplineConfig)
             else None
         )
         _, basis_blocks = _process_exog_config(
@@ -1249,7 +1249,7 @@ def regressor_response_frame(
             knots=stored_knots,
         )
         zero_lag_ix = exog_cfg.lags.index(0)
-        suffix = "coef" if isinstance(exog_cfg, TsgamSplineConfig) else "beta"
+        suffix = "coef" if isinstance(exog_cfg, SplineConfig) else "beta"
         coefficients = _coefficient_value(
             estimator.decomposition_["values"][f"exog_{ix}_{suffix}"],
             f"Exogenous coefficients for {spec.name}",
@@ -1274,7 +1274,7 @@ def regressor_response_frame(
 
 
 def _trend_contribution(
-    estimator: TsgamEstimator,
+    estimator: Estimator,
     time_indices: np.ndarray,
     n_samples: int,
 ) -> np.ndarray:
@@ -1301,7 +1301,7 @@ def _trend_contribution(
 
 
 def fitted_component_frame(
-    estimator: TsgamEstimator,
+    estimator: Estimator,
     X: pd.DataFrame,
     *,
     regressor_names: Sequence[str] | None = None,
@@ -1338,7 +1338,7 @@ def fitted_component_frame(
 
 
 def predicted_component_frame(
-    estimator: TsgamEstimator,
+    estimator: Estimator,
     X: pd.DataFrame,
     *,
     regressor_names: Sequence[str] | None = None,
@@ -1373,7 +1373,7 @@ def predicted_component_frame(
     for ix, exog_cfg in enumerate(exog_config):
         stored_knots = (
             estimator.exog_knots_[ix]
-            if isinstance(exog_cfg, TsgamSplineConfig)
+            if isinstance(exog_cfg, SplineConfig)
             else None
         )
         _, basis_blocks = _process_exog_config(
@@ -1384,7 +1384,7 @@ def predicted_component_frame(
         if ix in interaction_parent_indices:
             zero_lag_Hs[ix] = _get_zero_lag_H(exog_cfg, basis_blocks)
 
-        suffix = "coef" if isinstance(exog_cfg, TsgamSplineConfig) else "beta"
+        suffix = "coef" if isinstance(exog_cfg, SplineConfig) else "beta"
         coefficients = _coefficient_value(
             values[f"exog_{ix}_{suffix}"],
             f"Exogenous coefficients for {names[ix]}",

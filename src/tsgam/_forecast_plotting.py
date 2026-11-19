@@ -162,7 +162,7 @@ def forecast_to_long_dataframe(
     Parameters
     ----------
     predictions
-        Output from :meth:`TsgamForecastEstimator.predict`. Rows are forecast
+        Output from :meth:`ForecastEstimator.predict`. Rows are forecast
         origins and columns are named ``horizon_0``, ``horizon_1``, and so on,
         or begin at ``horizon_1`` when nowcasting is disabled.
     actual

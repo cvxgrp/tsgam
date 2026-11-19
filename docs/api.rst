@@ -6,23 +6,27 @@ API Reference
 
 Import both estimators and their configuration classes from ``tsgam``.
 
+.. code-block:: python
+
+   from tsgam import Estimator, ForecastEstimator
+
 Time-series decomposition
 -------------------------
 
-Use ``TsgamEstimator`` to fit a series and inspect its fitted components
+Use ``Estimator`` to fit a series and inspect its fitted components
 through ``decomposition_``.
 
-.. autoclass:: tsgam.TsgamEstimator
+.. autoclass:: tsgam.Estimator
    :members: fit, predict, sample, score
    :undoc-members:
 
 Direct multi-horizon forecasting
 --------------------------------
 
-Use ``TsgamForecastEstimator`` to predict several horizons from each forecast
+Use ``ForecastEstimator`` to predict several horizons from each forecast
 origin. Each output row corresponds to one origin, with a column per horizon.
 
-.. autoclass:: tsgam.TsgamForecastEstimator
+.. autoclass:: tsgam.ForecastEstimator
    :members: fit, predict
    :undoc-members:
 
@@ -31,7 +35,7 @@ Configuration and utilities
 
 .. automodule:: tsgam
    :members:
-   :exclude-members: TsgamEstimator, TsgamForecastEstimator
+   :exclude-members: Estimator, ForecastEstimator
    :undoc-members:
    :show-inheritance:
 

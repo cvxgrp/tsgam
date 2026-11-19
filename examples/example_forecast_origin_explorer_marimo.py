@@ -56,24 +56,24 @@ def _():
         sys.path.insert(0, str(src_dir))
 
     from tsgam import (
-        TsgamEstimatorConfig,
-        TsgamForecastConfig,
-        TsgamForecastCouplingConfig,
-        TsgamForecastEstimator,
-        TsgamLinearConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
+        EstimatorConfig,
+        ForecastConfig,
+        ForecastCouplingConfig,
+        ForecastEstimator,
+        LinearConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
         plot_forecast_origin,
     )
 
     return (
-        TsgamEstimatorConfig,
-        TsgamForecastConfig,
-        TsgamForecastCouplingConfig,
-        TsgamForecastEstimator,
-        TsgamLinearConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
+        EstimatorConfig,
+        ForecastConfig,
+        ForecastCouplingConfig,
+        ForecastEstimator,
+        LinearConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
         mo,
         np,
         pd,
@@ -84,13 +84,13 @@ def _():
 
 @app.cell
 def _(
-    TsgamEstimatorConfig,
-    TsgamForecastConfig,
-    TsgamForecastCouplingConfig,
-    TsgamForecastEstimator,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
+    EstimatorConfig,
+    ForecastConfig,
+    ForecastCouplingConfig,
+    ForecastEstimator,
+    LinearConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
     np,
     pd,
 ):
@@ -99,20 +99,20 @@ def _(
     exog_lags = [-2, -1, 0]
 
     def _base_config():
-        return TsgamEstimatorConfig(
-            multi_periodic_config=TsgamMultiPeriodicConfig(
+        return EstimatorConfig(
+            multi_periodic_config=MultiPeriodicConfig(
                 num_harmonics=[2],
                 periods=[24],
                 reg_weight=1.0e-5,
             ),
             exog_config=[
-                TsgamLinearConfig(
+                LinearConfig(
                     lags=exog_lags,
                     reg_weight=1.0e-5,
                     diff_reg_weight=1.0e-3,
                 )
             ],
-            solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+            solver_config=SolverConfig(solver="CLARABEL", verbose=False),
         )
 
     _rng = np.random.default_rng(23)
@@ -153,19 +153,19 @@ def _(
     _y_train = frame["observed"].to_numpy()[:_train_stop]
     _x_eval = frame[["driver"]].iloc[_train_stop:-forecast_horizon]
 
-    _independent = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    _independent = ForecastEstimator(
+        ForecastConfig(
             horizon=forecast_horizon,
             base_config=_base_config(),
             mode="independent",
         )
     ).fit(_x_train, _y_train)
-    _coupled = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    _coupled = ForecastEstimator(
+        ForecastConfig(
             horizon=forecast_horizon,
             base_config=_base_config(),
             mode="coupled",
-            coupling_config=TsgamForecastCouplingConfig(roughness_weight=4.0),
+            coupling_config=ForecastCouplingConfig(roughness_weight=4.0),
         )
     ).fit(_x_train, _y_train)
     independent_prediction = _independent.predict(_x_eval)

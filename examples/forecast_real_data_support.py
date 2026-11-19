@@ -12,13 +12,13 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from tsgam import (
-    TsgamEstimatorConfig,
-    TsgamForecastConfig,
-    TsgamForecastCouplingConfig,
-    TsgamForecastEstimator,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
+    EstimatorConfig,
+    ForecastConfig,
+    ForecastCouplingConfig,
+    ForecastEstimator,
+    LinearConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
     plot_forecast_origin,
 )
 
@@ -402,32 +402,32 @@ def _actual_targets(
 
 def _make_model(
     spec: DatasetSpec, n_features: int, mode: str
-) -> TsgamForecastEstimator:
-    base_config = TsgamEstimatorConfig(
-        multi_periodic_config=TsgamMultiPeriodicConfig(
+) -> ForecastEstimator:
+    base_config = EstimatorConfig(
+        multi_periodic_config=MultiPeriodicConfig(
             num_harmonics=list(spec.num_harmonics),
             periods=list(spec.periods_in_samples),
             reg_weight=1.0e-4,
         ),
         exog_config=[
-            TsgamLinearConfig(lags=[0], reg_weight=1.0e-4) for _ in range(n_features)
+            LinearConfig(lags=[0], reg_weight=1.0e-4) for _ in range(n_features)
         ],
-        solver_config=TsgamSolverConfig(
+        solver_config=SolverConfig(
             solver=spec.solver,
             verbose=False,
             solver_opts=dict(spec.solver_opts) if spec.solver_opts else None,
         ),
     )
     coupling = (
-        TsgamForecastCouplingConfig(
+        ForecastCouplingConfig(
             roughness_weight=spec.coupling_weight,
             roughness_order=1,
         )
         if mode == "coupled"
         else None
     )
-    return TsgamForecastEstimator(
-        TsgamForecastConfig(
+    return ForecastEstimator(
+        ForecastConfig(
             horizon=spec.horizon,
             base_config=base_config,
             mode=mode,
@@ -436,7 +436,7 @@ def _make_model(
     )
 
 
-def _roughness(model: TsgamForecastEstimator) -> float:
+def _roughness(model: ForecastEstimator) -> float:
     vectors = []
     forecast_horizons = [horizon for horizon in model.horizons_ if horizon > 0]
     if model.config.mode == "independent":
@@ -681,7 +681,7 @@ def write_notebook(path: Path | None = None) -> Path:
         nbf.v4.new_markdown_cell(
             "# Real-data direct multi-horizon forecast benchmark\n\n"
             "This local-only research notebook compares independent and coupled "
-            "TsgamForecastEstimator fits on bundled PV solar, ISO load, and tidal "
+            "ForecastEstimator fits on bundled PV solar, ISO load, and tidal "
             "water-level data. It performs no downloads."
         ),
         nbf.v4.new_code_cell(

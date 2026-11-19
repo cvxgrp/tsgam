@@ -57,20 +57,20 @@ def _():
         sys.path.insert(0, str(src_dir))
 
     from tsgam import (
-        TsgamEstimatorConfig,
-        TsgamForecastConfig,
-        TsgamForecastEstimator,
-        TsgamLinearConfig,
-        TsgamSolverConfig,
+        EstimatorConfig,
+        ForecastConfig,
+        ForecastEstimator,
+        LinearConfig,
+        SolverConfig,
     )
 
     alt.data_transformers.disable_max_rows()
     return (
-        TsgamEstimatorConfig,
-        TsgamForecastConfig,
-        TsgamForecastEstimator,
-        TsgamLinearConfig,
-        TsgamSolverConfig,
+        EstimatorConfig,
+        ForecastConfig,
+        ForecastEstimator,
+        LinearConfig,
+        SolverConfig,
         alt,
         mo,
         np,
@@ -359,11 +359,11 @@ def _(alignment_table, mo):
 @app.cell
 def _(
     FORECAST_HORIZON,
-    TsgamEstimatorConfig,
-    TsgamForecastConfig,
-    TsgamForecastEstimator,
-    TsgamLinearConfig,
-    TsgamSolverConfig,
+    EstimatorConfig,
+    ForecastConfig,
+    ForecastEstimator,
+    LinearConfig,
+    SolverConfig,
     build_actual_targets,
     np,
     pd,
@@ -378,13 +378,13 @@ def _(
     X_train = X_all.iloc[:train_stop]
     y_train = y_all[:train_stop]
     X_eval = X_all.iloc[train_stop:-FORECAST_HORIZON]
-    base_config = TsgamEstimatorConfig(
+    base_config = EstimatorConfig(
         multi_periodic_config=None,
-        exog_config=[TsgamLinearConfig(lags=[0], reg_weight=1.0e-7)],
-        solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+        exog_config=[LinearConfig(lags=[0], reg_weight=1.0e-7)],
+        solver_config=SolverConfig(solver="CLARABEL", verbose=False),
     )
-    simple_forecast_model = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    simple_forecast_model = ForecastEstimator(
+        ForecastConfig(
             horizon=FORECAST_HORIZON,
             base_config=base_config,
             mode="independent",
@@ -433,14 +433,14 @@ def _(
 @app.cell
 def _(mo, train_stop):
     split_view = mo.md(
-        "## 4. Fit `TsgamForecastEstimator`\n\n"
+        "## 4. Fit `ForecastEstimator`\n\n"
         f"The first `{train_stop}` rows are made available to fitting. Horizon "
         "specific direct regressions then drop the final `h` rows from that "
         "training block because their targets would fall outside the fitted "
         "target vector. Evaluation starts at the first held-out origin and "
         "also drops the dataset tail that cannot provide all future targets.\n\n"
-        "The model receives a normal single-output `TsgamEstimatorConfig`, then "
-        "`TsgamForecastConfig(horizon=3, mode=\"independent\")` turns it into "
+        "The model receives a normal single-output `EstimatorConfig`, then "
+        "`ForecastConfig(horizon=3, mode=\"independent\")` turns it into "
         "four direct regressions: the `horizon_0` nowcast plus forecast "
         "columns `horizon_1`, `horizon_2`, and `horizon_3`."
     )

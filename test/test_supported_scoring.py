@@ -8,8 +8,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from tsgam import (
-    TsgamEstimator, TsgamEstimatorConfig, TsgamLinearConfig,
-    TsgamForecastConfig, TsgamForecastEstimator,
+    Estimator, EstimatorConfig, LinearConfig,
+    ForecastConfig, ForecastEstimator,
     make_supported_scorer,
 )
 
@@ -21,7 +21,7 @@ def lagged_data():
 
 
 def lagged_model():
-    return TsgamEstimator(TsgamEstimatorConfig(None, [TsgamLinearConfig(lags=[-2])]))
+    return Estimator(EstimatorConfig(None, [LinearConfig(lags=[-2])]))
 
 
 def test_score_masks_predictions_without_recomputing_lags():
@@ -52,7 +52,7 @@ def test_grid_search_scores_lagged_validation_windows(scoring):
 
 def test_score_rejects_unsupported_window_and_invalid_targets():
     X, y = lagged_data()
-    model = TsgamEstimator(TsgamEstimatorConfig(None, [TsgamLinearConfig(lags=[-4])])).fit(X, y)
+    model = Estimator(EstimatorConfig(None, [LinearConfig(lags=[-4])])).fit(X, y)
     with pytest.raises(ValueError, match="No supported"):
         model.score(X.iloc[:4], y[:4])
     y[3] = np.nan
@@ -114,7 +114,7 @@ def test_scorer_still_rejects_incompatible_multioutput_targets():
 @pytest.mark.parametrize("mode", ["independent", "coupled"])
 def test_forecast_scorer_aligns_multioutput_targets(mode):
     X, y = lagged_data()
-    model = TsgamForecastEstimator(TsgamForecastConfig(
+    model = ForecastEstimator(ForecastConfig(
         horizon=2, mode=mode, base_config=lagged_model().config,
     )).fit(X, y)
     targets = np.column_stack([np.roll(y, -int(h)) for h in model.horizons_])

@@ -92,7 +92,7 @@ design audit and coordinate transform). Coupled forecasts retain these under
 
 Duplicate timestamps are rejected before grid expansion; aggregate repeated
 observations and their weights explicitly. Spline responses require at least
-three knots. For former two-knot linear responses, use `TsgamLinearConfig` with
+three knots. For former two-knot linear responses, use `LinearConfig` with
 the same lags and regularization weights.
 
 TSGAM uses SignalDecomp as its decomposition engine, pinned to an immutable Git
@@ -132,25 +132,20 @@ missing observations.
 ## Direct Target-History Forecasting
 
 Forecast mode can use values of the target known at each forecast origin as
-direct autoregressive features. Unlike `TsgamArConfig`, this is a deterministic
+direct autoregressive features. Unlike `ArConfig`, this is a deterministic
 multi-horizon predictor: it fits each future target directly and does not roll
 predictions or sampled residuals forward.
 
 ```python
 import pandas as pd
+import tsgam
 
-from tsgam import (
-    TsgamForecastArConfig,
-    TsgamForecastConfig,
-    TsgamForecastEstimator,
-)
-
-forecaster = TsgamForecastEstimator(
-    TsgamForecastConfig(
+forecaster = tsgam.ForecastEstimator(
+    tsgam.ForecastConfig(
         horizon=24,
         base_config=base_config,
         include_nowcast=False,
-        forecast_ar_config=TsgamForecastArConfig(
+        forecast_ar_config=tsgam.ForecastArConfig(
             lags=[0, 1, 2, 24],
             reg_weight=1e-4,
         ),
@@ -173,7 +168,7 @@ coefficients are in `forecast_ar_standardized_coefficients_`.
 ## Forecast Visualization
 
 Install the optional Matplotlib support and plot the origin-indexed output from
-`TsgamForecastEstimator.predict` directly:
+`ForecastEstimator.predict` directly:
 
 ```bash
 uv sync --extra viz

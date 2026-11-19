@@ -28,11 +28,11 @@ from ._design import (
 )
 
 if TYPE_CHECKING:
-    from ._estimator import TsgamEstimatorConfig, TsgamSolverConfig
+    from ._estimator import EstimatorConfig, SolverConfig
 
 
 def legacy_variable_views(
-    config: TsgamEstimatorConfig,
+    config: EstimatorConfig,
     variables: Mapping[str, cvxpy.Expression],
 ) -> dict[str, cvxpy.Expression]:
     """Expose historical coefficient names/shapes without new optimization variables."""
@@ -63,7 +63,7 @@ def legacy_variable_views(
 
 def solve_problem(
     problem: cvxpy.Problem,
-    solver_config: TsgamSolverConfig,
+    solver_config: SolverConfig,
     *,
     failure_message: str,
 ) -> None:
@@ -78,7 +78,7 @@ def solve_problem(
 
 
 def build_single_output_decomposition(
-    config: TsgamEstimatorConfig,
+    config: EstimatorConfig,
     design: _TsgamDesign,
     *,
     knots_by_exog: list[ndarray | None] | None = None,
@@ -122,7 +122,7 @@ def build_single_output_decomposition(
                 else configured_knots if configured_knots.size else None
             )
             if knots is None and exog_cfg.n_knots is None:
-                raise ValueError("Either knots or n_knots must be provided for TsgamSplineConfig")
+                raise ValueError("Either knots or n_knots must be provided for SplineConfig")
             if knots is None:
                 # Retain the existing training-extrema knot policy independently
                 # of the optional change in numerical coordinates.
@@ -235,7 +235,7 @@ def build_single_output_decomposition(
 
 
 def evaluate_single_output_prediction(
-    config: TsgamEstimatorConfig,
+    config: EstimatorConfig,
     design: _TsgamDesign,
     values: Mapping[str, ndarray | float],
     *,

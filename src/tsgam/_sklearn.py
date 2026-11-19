@@ -40,13 +40,13 @@ def make_supported_scorer(scoring: str) -> Callable[..., float]:
 
     def supported_score(estimator, X, y, sample_weight=None) -> float:
         from ._design import sort_fit_inputs
-        from ._estimator import TsgamEstimator
-        from ._forecast import TsgamForecastEstimator
+        from ._estimator import Estimator
+        from ._forecast import ForecastEstimator
 
         final_estimator = estimator
         while isinstance(final_estimator, Pipeline):
             final_estimator = final_estimator.steps[-1][1]
-        if isinstance(final_estimator, (TsgamEstimator, TsgamForecastEstimator)):
+        if isinstance(final_estimator, (Estimator, ForecastEstimator)):
             # Transform once, then align using the actual timestamp layout seen
             # by TSGAM, just as Pipeline.score delegates after preprocessing.
             while isinstance(estimator, Pipeline):
@@ -56,8 +56,8 @@ def make_supported_scorer(scoring: str) -> Callable[..., float]:
 
         # TSGAM returns chronological predictions, unlike ordinary sklearn
         # regressors. Apply the same permutation to targets and weights first.
-        if isinstance(estimator, (TsgamEstimator, TsgamForecastEstimator)):
-            config = estimator.config.base_config if isinstance(estimator, TsgamForecastEstimator) else estimator.config
+        if isinstance(estimator, (Estimator, ForecastEstimator)):
+            config = estimator.config.base_config if isinstance(estimator, ForecastEstimator) else estimator.config
             check_consistent_length(X, y, sample_weight)
             X, y, sample_weight = sort_fit_inputs(
                 X, sort_index=config.sort_index, y=np.asarray(y), sample_weight=sample_weight,

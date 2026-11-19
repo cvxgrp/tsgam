@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Tests for timestamp handling in TsgamEstimator.
+Tests for timestamp handling in Estimator.
 
 This test suite verifies that:
 1. Timestamps are correctly extracted from DataFrames
@@ -16,11 +16,11 @@ import pandas as pd
 import pytest
 
 from tsgam import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
+    SplineConfig,
 )
 from tsgam._design import (
     _ensure_timestamp_index,
@@ -42,13 +42,13 @@ def hourly_data():
 @pytest.fixture
 def basic_config():
     """Create basic config for testing."""
-    multi_periodic_config = TsgamMultiPeriodicConfig(
+    multi_periodic_config = MultiPeriodicConfig(
         num_harmonics=[2, 1],
         periods=[24, 7 * 24]  # Daily and weekly
     )
-    solver_config = TsgamSolverConfig(solver='CLARABEL', verbose=False)
+    solver_config = SolverConfig(solver='CLARABEL', verbose=False)
 
-    return TsgamEstimatorConfig(
+    return EstimatorConfig(
         multi_periodic_config=multi_periodic_config,
         exog_config=None,
         ar_config=None,
@@ -116,7 +116,7 @@ class TestSortIndex:
         X = pd.DataFrame({'temp': temp[perm]}, index=unsorted_timestamps)
         y_perm = y[perm]
 
-        estimator = TsgamEstimator(config=basic_config)  # sort_index=True by default
+        estimator = Estimator(config=basic_config)  # sort_index=True by default
         estimator.fit(X, y_perm)
         pred = estimator.predict(X)
         assert len(pred) == len(X)
@@ -131,7 +131,7 @@ class TestSortIndex:
         X = pd.DataFrame({'temp': temp[perm]}, index=unsorted_timestamps)
         y_perm = y[perm]
 
-        config_unsorted_ok = TsgamEstimatorConfig(
+        config_unsorted_ok = EstimatorConfig(
             multi_periodic_config=basic_config.multi_periodic_config,
             exog_config=basic_config.exog_config,
             ar_config=basic_config.ar_config,
@@ -142,7 +142,7 @@ class TestSortIndex:
             random_state=basic_config.random_state,
             debug=basic_config.debug,
         )
-        estimator = TsgamEstimator(config=config_unsorted_ok)
+        estimator = Estimator(config=config_unsorted_ok)
         with pytest.raises(ValueError, match="not sorted chronologically"):
             estimator.fit(X, y_perm)
 
@@ -151,7 +151,7 @@ class TestSortIndex:
         timestamps, temp, y = hourly_data
         X = pd.DataFrame({'temp': temp}, index=timestamps)
 
-        config_no_sort = TsgamEstimatorConfig(
+        config_no_sort = EstimatorConfig(
             multi_periodic_config=basic_config.multi_periodic_config,
             exog_config=basic_config.exog_config,
             ar_config=basic_config.ar_config,
@@ -162,7 +162,7 @@ class TestSortIndex:
             random_state=basic_config.random_state,
             debug=basic_config.debug,
         )
-        estimator = TsgamEstimator(config=config_no_sort)
+        estimator = Estimator(config=config_no_sort)
         estimator.fit(X, y)
         pred = estimator.predict(X)
         assert len(pred) == len(X)
@@ -249,7 +249,7 @@ class TestPhaseCorrectness:
         y_train = y[:split_idx]
         X_test = pd.DataFrame({'temp': temp[split_idx:]}, index=test_timestamps)
 
-        estimator = TsgamEstimator(config=basic_config)
+        estimator = Estimator(config=basic_config)
         estimator.fit(X_train, y_train)
 
         # Should not raise
@@ -277,7 +277,7 @@ class TestPhaseCorrectness:
             'temp': temp[80:100]  # Use actual temp for testing
         }, index=future_timestamps)
 
-        estimator = TsgamEstimator(config=basic_config)
+        estimator = Estimator(config=basic_config)
         estimator.fit(X_train, y_train)
 
         # Should not raise
@@ -301,7 +301,7 @@ class TestPhaseCorrectness:
         )
         X_test = pd.DataFrame({'temp': temp[80:90]}, index=test_timestamps)
 
-        estimator = TsgamEstimator(config=basic_config)
+        estimator = Estimator(config=basic_config)
         estimator.fit(X_train, y_train)
 
         with pytest.raises(ValueError, match="frequency"):
@@ -313,7 +313,7 @@ class TestPhaseCorrectness:
 
         X = pd.DataFrame({'temp': temp}, index=timestamps)
 
-        estimator = TsgamEstimator(config=basic_config)
+        estimator = Estimator(config=basic_config)
         estimator.fit(X, y)
 
         # Predict on same data
@@ -331,7 +331,7 @@ class TestBasicFunctionality:
         timestamps, temp, y = hourly_data
         X = pd.DataFrame({'temp': temp}, index=timestamps)
 
-        estimator = TsgamEstimator(config=basic_config)
+        estimator = Estimator(config=basic_config)
         estimator.fit(X, y)
 
         assert hasattr(estimator, 'time_reference_')
@@ -345,7 +345,7 @@ class TestBasicFunctionality:
         timestamps, temp, y = hourly_data
         X = pd.DataFrame({'temp': temp}, index=timestamps)
 
-        estimator = TsgamEstimator(config=basic_config)
+        estimator = Estimator(config=basic_config)
         estimator.fit(X, y)
         predictions = estimator.predict(X)
 
@@ -357,29 +357,29 @@ class TestBasicFunctionality:
         timestamps, temp, y = hourly_data
 
         exog_config = [
-            TsgamSplineConfig(
+            SplineConfig(
                 n_knots=5,
                 lags=[0],
                 reg_weight=1e-4
             )
         ]
 
-        multi_periodic_config = TsgamMultiPeriodicConfig(
+        multi_periodic_config = MultiPeriodicConfig(
             num_harmonics=[2, 1],
             periods=[24, 7 * 24]
         )
 
-        config = TsgamEstimatorConfig(
+        config = EstimatorConfig(
             multi_periodic_config=multi_periodic_config,
             exog_config=exog_config,
             ar_config=None,
-            solver_config=TsgamSolverConfig(solver='CLARABEL', verbose=False),
+            solver_config=SolverConfig(solver='CLARABEL', verbose=False),
             random_state=None,
             debug=False
         )
 
         X = pd.DataFrame({'temp': temp}, index=timestamps)
-        estimator = TsgamEstimator(config=config)
+        estimator = Estimator(config=config)
         estimator.fit(X, y)
 
         predictions = estimator.predict(X)
@@ -396,19 +396,19 @@ class TestErrorCases:
         X = pd.DataFrame({'temp': temp}, index=timestamps)
 
         # Config without freq - frequency is inferred from data
-        config = TsgamEstimatorConfig(
-            multi_periodic_config=TsgamMultiPeriodicConfig(
+        config = EstimatorConfig(
+            multi_periodic_config=MultiPeriodicConfig(
                 num_harmonics=[2],
                 periods=[24]
             ),
             exog_config=None,
             ar_config=None,
-            solver_config=TsgamSolverConfig(solver='CLARABEL', verbose=False),
+            solver_config=SolverConfig(solver='CLARABEL', verbose=False),
             random_state=None,
             debug=False
         )
 
-        estimator = TsgamEstimator(config=config)
+        estimator = Estimator(config=config)
         # Should work - frequency is inferred from timestamps
         estimator.fit(X, y)
         # Verify frequency was inferred correctly
@@ -419,7 +419,7 @@ class TestErrorCases:
         timestamps, temp, y = hourly_data
         X = pd.DataFrame({'temp': temp}, index=timestamps)
 
-        estimator = TsgamEstimator(config=basic_config)
+        estimator = Estimator(config=basic_config)
         with pytest.raises(Exception):  # Should check for fitted attributes
             estimator.predict(X)
 
@@ -430,7 +430,7 @@ class TestErrorCases:
         # Use hourly data - frequency will be inferred as '1h'
         X = pd.DataFrame({'temp': temp[:50]}, index=timestamps[:50])
 
-        estimator = TsgamEstimator(config=basic_config)
+        estimator = Estimator(config=basic_config)
         # Should work - frequency is inferred from data
         estimator.fit(X, y[:50])
 
@@ -457,7 +457,7 @@ class TestEdgeCases:
         y_train = y[:80]
         X_test = pd.DataFrame({'temp': [temp[80]]}, index=[timestamps[80]])
 
-        estimator = TsgamEstimator(config=basic_config)
+        estimator = Estimator(config=basic_config)
         estimator.fit(X_train, y_train)
 
         predictions = estimator.predict(X_test)
@@ -479,7 +479,7 @@ class TestEdgeCases:
         )
         X_test = pd.DataFrame({'temp': temp[80:90]}, index=test_timestamps)
 
-        estimator = TsgamEstimator(config=basic_config)
+        estimator = Estimator(config=basic_config)
         estimator.fit(X_train, y_train)
 
         # Should raise error due to frequency mismatch
@@ -497,7 +497,7 @@ class TestEdgeCases:
         # Predict on earlier period
         X_test = pd.DataFrame({'temp': temp[:10]}, index=timestamps[:10])
 
-        estimator = TsgamEstimator(config=basic_config)
+        estimator = Estimator(config=basic_config)
         estimator.fit(X_train, y_train)
 
         # Should work but indices will be negative

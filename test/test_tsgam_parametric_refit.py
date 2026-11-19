@@ -11,23 +11,23 @@ between fits is supported without an explicit invalidation step.
 import numpy as np
 import pandas as pd
 from tsgam import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSplineConfig,
-    TsgamSolverConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SplineConfig,
+    SolverConfig,
 )
 
 
 def _make_config():
-    return TsgamEstimatorConfig(
-        multi_periodic_config=TsgamMultiPeriodicConfig(
+    return EstimatorConfig(
+        multi_periodic_config=MultiPeriodicConfig(
             num_harmonics=[2, 2],
             periods=[24.0, 168.0],
         ),
-        exog_config=[TsgamSplineConfig(n_knots=5, lags=[0])],
+        exog_config=[SplineConfig(n_knots=5, lags=[0])],
         ar_config=None,
-        solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+        solver_config=SolverConfig(solver="CLARABEL", verbose=False),
     )
 
 
@@ -40,7 +40,7 @@ def test_parametric_fit_correctness_equivalence():
     y = np.random.randn(n) * 0.5 + 1.0
 
     config = _make_config()
-    est = TsgamEstimator(config=config)
+    est = Estimator(config=config)
     est.fit(X, y)
     coef_first = {k: np.copy(v.value) for k, v in est.variables_.items() if v.value is not None}
 
@@ -61,7 +61,7 @@ def test_second_fit_different_sample_count_succeeds():
     """fit() after a prior fit with a different n_samples rebuilds and succeeds."""
     np.random.seed(43)
     config = _make_config()
-    est = TsgamEstimator(config=config)
+    est = Estimator(config=config)
 
     n1 = 80
     dates1 = pd.date_range("2020-01-01", periods=n1, freq="h")
@@ -86,7 +86,7 @@ def test_repeated_fit_same_shape_succeeds():
     np.random.seed(45)
     n = 70
     config = _make_config()
-    est = TsgamEstimator(config=config)
+    est = Estimator(config=config)
     dates = pd.date_range("2020-01-01", periods=n, freq="h")
     X = pd.DataFrame({"x": np.random.randn(n)}, index=dates)
     y = np.random.randn(n)

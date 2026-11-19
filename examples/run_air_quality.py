@@ -46,11 +46,11 @@ from common_cli import (
 )
 
 from tsgam import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSplineConfig,
-    TsgamSolverConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SplineConfig,
+    SolverConfig,
     PERIOD_HOURLY_DAILY,
     PERIOD_HOURLY_WEEKLY,
     PERIOD_HOURLY_YEARLY,
@@ -71,13 +71,13 @@ DEFAULT_TEST_END = '2014-03-31'
 
 
 _VAR_SPLINE_CONFIGS = {
-    'temperature': TsgamSplineConfig(n_knots=12, lags=[-2, -1, 0, 1, 2], reg_weight=6e-5, diff_reg_weight=0.5),
-    'dewpoint': TsgamSplineConfig(n_knots=10, lags=[-1, 0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
-    'wind_speed': TsgamSplineConfig(n_knots=8, lags=[0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
-    'pressure': TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),
+    'temperature': SplineConfig(n_knots=12, lags=[-2, -1, 0, 1, 2], reg_weight=6e-5, diff_reg_weight=0.5),
+    'dewpoint': SplineConfig(n_knots=10, lags=[-1, 0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
+    'wind_speed': SplineConfig(n_knots=8, lags=[0, 1], reg_weight=6e-5, diff_reg_weight=0.5),
+    'pressure': SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),
 }
 
-_DEFAULT_SPLINE = TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5)
+_DEFAULT_SPLINE = SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5)
 
 
 def _fit_single_aq(cfg: dict) -> dict:
@@ -86,14 +86,14 @@ def _fit_single_aq(cfg: dict) -> dict:
     try:
         variable_names = cfg['variable_names']
         exog_config = [_VAR_SPLINE_CONFIGS.get(v, _DEFAULT_SPLINE) for v in variable_names] or None
-        est = TsgamEstimator(config=TsgamEstimatorConfig(
-            multi_periodic_config=TsgamMultiPeriodicConfig(
+        est = Estimator(config=EstimatorConfig(
+            multi_periodic_config=MultiPeriodicConfig(
                 num_harmonics=[8, 6, 4],
                 periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
                 reg_weight=6e-5,
             ),
             exog_config=exog_config,
-            solver_config=TsgamSolverConfig(solver='CLARABEL', verbose=False),
+            solver_config=SolverConfig(solver='CLARABEL', verbose=False),
             random_state=42,
         ))
         est.fit(cfg['X_train'], cfg['y_train'])

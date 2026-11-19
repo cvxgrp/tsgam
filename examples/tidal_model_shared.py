@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from tsgam import TsgamSplineConfig
+from tsgam import SplineConfig
 
 _VAR_LAG_HOURS: dict[str, list[int]] = {
     "pressure": [-2, -1, 0, 1],
@@ -30,17 +30,17 @@ _VAR_N_KNOTS: dict[str, int] = {
 
 def make_tidal_spline_configs(
     samples_per_hour: int,
-) -> tuple[dict[str, TsgamSplineConfig], TsgamSplineConfig]:
+) -> tuple[dict[str, SplineConfig], SplineConfig]:
     """Build tidal spline configs with lags scaled to the sample grid."""
     configs = {}
     for variable, lag_hours in _VAR_LAG_HOURS.items():
-        configs[variable] = TsgamSplineConfig(
+        configs[variable] = SplineConfig(
             n_knots=_VAR_N_KNOTS.get(variable, 8),
             lags=[hour * samples_per_hour for hour in lag_hours],
             reg_weight=1e-5,
             diff_reg_weight=0.3,
         )
-    default = TsgamSplineConfig(
+    default = SplineConfig(
         n_knots=8,
         lags=[0],
         reg_weight=1e-5,

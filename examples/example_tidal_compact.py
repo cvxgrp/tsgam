@@ -38,12 +38,12 @@ with app.setup:
     from tidal_analysis_helpers import compute_lagged_correlation, compute_periodogram, infer_samples_per_hour, fitted_components
     from tidal_model_shared import prepare_split_regressors, tidal_metrics
     from tsgam import (
-        TsgamEstimator,
-        TsgamEstimatorConfig,
-        TsgamLinearConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
-        TsgamSplineConfig,
+        Estimator,
+        EstimatorConfig,
+        LinearConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
+        SplineConfig,
     )
 
     COLUMN_LABELS = {
@@ -181,8 +181,8 @@ with app.setup:
         active_regs: list[str]
         active_interactions: list[str]
         x_train_fit: pd.DataFrame
-        model: TsgamEstimator | None
-        exog_config: list[TsgamSplineConfig | TsgamLinearConfig] | None
+        model: Estimator | None
+        exog_config: list[SplineConfig | LinearConfig] | None
         n_train: int
         n_test: int
         sph: int
@@ -1507,7 +1507,7 @@ def build_regressor_response_inputs(
     reg_config = exog_config[reg_idx]
     if lag not in reg_config.lags:
         raise ValueError(f"Lag {lag} is unavailable for {regressor_name}.")
-    suffix = "coef" if isinstance(reg_config, TsgamSplineConfig) else "beta"
+    suffix = "coef" if isinstance(reg_config, SplineConfig) else "beta"
     coef = model.decomposition_["values"][f"exog_{reg_idx}_{suffix}"]
 
     grid_index = pd.date_range(x_train_fit.index.min(), x_train_fit.index.max(), freq=model.freq_)
@@ -1526,7 +1526,7 @@ def build_regressor_response_inputs(
     grid = np.linspace(float(np.min(x_scatter)), float(np.max(x_scatter)), grid_size)
     lag_idx = reg_config.lags.index(lag)
     coef_matrix = np.asarray(coef, dtype=float).reshape(-1, len(reg_config.lags), order="F")
-    if isinstance(reg_config, TsgamSplineConfig):
+    if isinstance(reg_config, SplineConfig):
         knots = model.exog_knots_[reg_idx]
         H_grid = make_spline_basis(grid, knots)
         response = H_grid @ coef_matrix[:, lag_idx]
@@ -1608,7 +1608,7 @@ def build_periodic_config(
     harmonic_orders: dict[str, int],
     sph: int,
     fourier_reg_weight: float | None = None,
-) -> tuple[dict[str, tuple[float, int]], TsgamMultiPeriodicConfig | None]:
+) -> tuple[dict[str, tuple[float, int]], MultiPeriodicConfig | None]:
     picked: dict[str, tuple[float, int]] = {}
     for name, active in component_mask.items():
         if not active or name not in PERIODS:
@@ -1624,7 +1624,7 @@ def build_periodic_config(
             if fourier_reg_weight is None
             else float(fourier_reg_weight)
         )
-        config = TsgamMultiPeriodicConfig(
+        config = MultiPeriodicConfig(
             periods=[period * sph for period, _ in picked.values()],
             num_harmonics=[order for _, order in picked.values()],
             reg_weight=resolved_reg_weight,
@@ -1641,7 +1641,7 @@ def build_exog_design_matrices(
     lag_ranges: dict[str, tuple[int, int]],
     knot_presets: dict[str, str],
     sph: int,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str], list[TsgamSplineConfig | TsgamLinearConfig] | None]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str], list[SplineConfig | LinearConfig] | None]:
     x_train_fit = pd.DataFrame(index=df_train.index[ok_train])
     x_train_pred = pd.DataFrame(index=df_train.index)
     x_test_pred = pd.DataFrame(index=df_test.index)
@@ -1661,7 +1661,7 @@ def build_exog_design_matrices(
             raise ValueError(f"Missing knot preset for active regressor: {column}") from exc
         knot_count = build_knot_count(knot_preset)
         exog_config.append(
-            TsgamSplineConfig(
+            SplineConfig(
                 n_knots=knot_count,
                 lags=[hour * sph for hour in range(lag_start, lag_end + 1)],
                 reg_weight=1e-5,
@@ -1692,8 +1692,8 @@ def pack_model_result(
     active_interactions: list[str],
     sph: int,
     x_train_fit: pd.DataFrame | None = None,
-    exog_config: list[TsgamSplineConfig | TsgamLinearConfig] | None = None,
-    model: TsgamEstimator | None = None,
+    exog_config: list[SplineConfig | LinearConfig] | None = None,
+    model: Estimator | None = None,
 ) -> FitResult:
     ok_train_np = ok_train.to_numpy(dtype=bool)
     ok_test_np = ok_test.to_numpy(dtype=bool)
@@ -1795,12 +1795,12 @@ def run_tidal_model(
             exog_config=exog_config,
         )
 
-    model = TsgamEstimator(
-        TsgamEstimatorConfig(
+    model = Estimator(
+        EstimatorConfig(
             multi_periodic_config=periodic_config,
             exog_config=exog_config,
             interaction_pairs=interaction_index_pairs or None,
-            solver_config=TsgamSolverConfig(solver="SCS", verbose=solver_verbose),
+            solver_config=SolverConfig(solver="SCS", verbose=solver_verbose),
             debug=debug,
         )
     )

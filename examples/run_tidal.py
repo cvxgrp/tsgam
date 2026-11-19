@@ -81,12 +81,12 @@ from tidal_model_shared import (
 )
 from tsgam import (
     TrendType,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
-    TsgamTrendConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
+    SplineConfig,
+    TrendConfig,
 )
 
 
@@ -97,14 +97,14 @@ DEFAULT_TEST_START = '2024-01-01'
 DEFAULT_TEST_END = '2024-03-31'
 
 
-def _make_multi_periodic(samples_per_hour: float) -> TsgamMultiPeriodicConfig:
+def _make_multi_periodic(samples_per_hour: float) -> MultiPeriodicConfig:
     """Build a constituent-aware Fourier config scaled to the data's sample grid."""
     return make_constituent_multi_periodic(samples_per_hour)
 
 
 def _make_spline_configs(
     samples_per_hour: int,
-) -> tuple[dict[str, TsgamSplineConfig], TsgamSplineConfig]:
+) -> tuple[dict[str, SplineConfig], SplineConfig]:
     """Build spline configs with lags scaled to the data's sampling rate."""
     return make_tidal_spline_configs(samples_per_hour)
 
@@ -131,11 +131,11 @@ def _fit_single_tidal(cfg):
         )
         trend_config = cfg.get('trend_config')
         solver = cfg.get('solver', 'CLARABEL')
-        est = TsgamEstimator(config=TsgamEstimatorConfig(
+        est = Estimator(config=EstimatorConfig(
             multi_periodic_config=cfg['multi_periodic'],
             exog_config=exog_config,
             trend_config=trend_config,
-            solver_config=TsgamSolverConfig(solver=solver, verbose=False),
+            solver_config=SolverConfig(solver=solver, verbose=False),
             random_state=42,
         ))
         observed = np.isfinite(cfg['y_train'])
@@ -210,7 +210,7 @@ def _build_tidal_configs(
             'X_train': X_train[cumulative_vars].copy(),
             'X_test': X_test[cumulative_vars].copy(),
             'variable_names': list(cumulative_vars),
-            'trend_config': TsgamTrendConfig(
+            'trend_config': TrendConfig(
                 trend_type=TrendType.LINEAR,
                 grouping=trend_grouping,
             ),
