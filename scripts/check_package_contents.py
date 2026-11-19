@@ -24,7 +24,6 @@ ALLOWED_SDIST_PACKAGE_FILES = {
     "src/tsgam/_problem.py",
     "src/tsgam/_sklearn.py",
     "src/tsgam/py.typed",
-    "src/tsgam/tsgam_estimator.py",
 }
 ALLOWED_WHEEL_PACKAGE_FILES = {
     "tsgam/__init__.py",
@@ -35,7 +34,6 @@ ALLOWED_WHEEL_PACKAGE_FILES = {
     "tsgam/_problem.py",
     "tsgam/_sklearn.py",
     "tsgam/py.typed",
-    "tsgam/tsgam_estimator.py",
 }
 
 

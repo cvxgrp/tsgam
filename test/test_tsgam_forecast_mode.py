@@ -22,10 +22,6 @@ from tsgam import (
     SolverConfig,
     SplineConfig,
 )
-from tsgam.tsgam_estimator import (
-    ForecastArConfig as ShimForecastArConfig,
-    ForecastEstimator as ShimForecastEstimator,
-)
 
 
 def _make_data(n_samples: int = 80) -> tuple[pd.DataFrame, np.ndarray]:
@@ -300,11 +296,6 @@ def test_coupling_does_not_bias_horizon_zero_nowcast():
     coupled_h0 = coupled.predict(X_eval)["horizon_0"]
 
     np.testing.assert_allclose(coupled_h0, independent_h0, rtol=1e-5, atol=1e-5)
-
-
-def test_public_forecast_imports_are_available():
-    assert ShimForecastEstimator is ForecastEstimator
-    assert ShimForecastArConfig is ForecastArConfig
 
 
 def test_direct_forecast_ar_recovers_planted_coefficient():
