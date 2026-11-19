@@ -17,16 +17,16 @@ from signaldecomp.basis import cross_bases, make_basis_matrix
 
 if TYPE_CHECKING:
     from ._estimator import (
-        TsgamEstimatorConfig,
-        TsgamLinearConfig,
-        TsgamSplineConfig,
+        EstimatorConfig,
+        LinearConfig,
+        SplineConfig,
     )
 
 
-def _is_spline_config(exog_cfg: object) -> TypeGuard[TsgamSplineConfig]:
-    from ._estimator import TsgamSplineConfig
+def _is_spline_config(exog_cfg: object) -> TypeGuard[SplineConfig]:
+    from ._estimator import SplineConfig
 
-    return isinstance(exog_cfg, TsgamSplineConfig)
+    return isinstance(exog_cfg, SplineConfig)
 
 
 def _to_pandas_timedelta_frequency(freq: str) -> str:
@@ -261,7 +261,7 @@ def sort_predict_X(X: pd.DataFrame, *, sort_index: bool) -> pd.DataFrame:
 
 
 def _process_exog_config(
-    exog_cfg: TsgamSplineConfig | TsgamLinearConfig,
+    exog_cfg: SplineConfig | LinearConfig,
     exog_var: ndarray,
     knots: ndarray | None = None,
 ) -> tuple[ndarray, list[ndarray]]:
@@ -271,7 +271,7 @@ def _process_exog_config(
         knots = np.asarray(knots, dtype=float) if knots is not None else configured
         if knots.size == 0:
             if exog_cfg.n_knots is None:
-                raise ValueError("Either knots or n_knots must be provided for TsgamSplineConfig")
+                raise ValueError("Either knots or n_knots must be provided for SplineConfig")
             knots = np.linspace(np.min(exog_var), np.max(exog_var), exog_cfg.n_knots)
         base = make_spline_basis(exog_var, knots)
     else:
@@ -286,7 +286,7 @@ def _process_exog_config(
 
 
 def _get_zero_lag_H(
-    exog_cfg: TsgamSplineConfig | TsgamLinearConfig,
+    exog_cfg: SplineConfig | LinearConfig,
     Hs: list[ndarray],
 ) -> ndarray:
     """Return the current-index basis block for an exogenous term."""
@@ -299,7 +299,7 @@ def _get_zero_lag_H(
     return Hs[zero_lag_ix]
 
 
-def _normalize_interaction_pairs(config: TsgamEstimatorConfig) -> list[tuple[int, int]]:
+def _normalize_interaction_pairs(config: EstimatorConfig) -> list[tuple[int, int]]:
     """Validate and normalize configured exogenous interaction pairs."""
     if not config.interaction_pairs:
         return []
@@ -346,7 +346,7 @@ def _normalize_interaction_pairs(config: TsgamEstimatorConfig) -> list[tuple[int
     return normalized_pairs
 
 
-def _min_samples_required(config: TsgamEstimatorConfig) -> int:
+def _min_samples_required(config: EstimatorConfig) -> int:
     """Calculate minimum samples required by exogenous and AR lags."""
     all_exog_lags = []
     for exog_cfg in config.exog_config or []:
@@ -365,7 +365,7 @@ def _min_samples_required(config: TsgamEstimatorConfig) -> int:
 
 
 def _resolve_exog_knots(
-    config: TsgamEstimatorConfig,
+    config: EstimatorConfig,
     X_array: ndarray,
 ) -> list[ndarray | None]:
     """Resolve shared spline knots from a fitting matrix."""
@@ -377,7 +377,7 @@ def _resolve_exog_knots(
             cfg_knots = np.asarray(exog_cfg.knots) if exog_cfg.knots is not None else np.array([])
             if len(cfg_knots) == 0:
                 if not exog_cfg.n_knots:
-                    raise ValueError("Either knots or n_knots must be provided for TsgamSplineConfig")
+                    raise ValueError("Either knots or n_knots must be provided for SplineConfig")
                 knots_by_exog.append(
                     np.linspace(np.min(X_array[:, ix]), np.max(X_array[:, ix]), exog_cfg.n_knots)
                 )
@@ -389,7 +389,7 @@ def _resolve_exog_knots(
 
 
 def resolve_exog_knots(
-    config: TsgamEstimatorConfig,
+    config: EstimatorConfig,
     X: pd.DataFrame,
 ) -> list[ndarray | None]:
     if not config.exog_config:
@@ -399,7 +399,7 @@ def resolve_exog_knots(
 
 
 def _make_fourier_basis(
-    config: TsgamEstimatorConfig,
+    config: EstimatorConfig,
     time_indices: ndarray,
 ) -> ndarray | None:
     if config.multi_periodic_config is None:
@@ -427,7 +427,7 @@ def _make_fourier_basis(
 
 
 def build_tsgam_design(
-    config: TsgamEstimatorConfig,
+    config: EstimatorConfig,
     X: pd.DataFrame,
     y: ndarray | None = None,
     sample_weight: ndarray | None = None,

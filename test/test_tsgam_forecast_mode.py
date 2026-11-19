@@ -6,25 +6,21 @@
 import numpy as np
 import pandas as pd
 import pytest
-import tsgam_estimator._forecast as forecast_module
+import tsgam._forecast as forecast_module
 
-from tsgam_estimator import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamArConfig,
-    TsgamForecastArConfig,
-    TsgamForecastConfig,
-    TsgamForecastCouplingConfig,
-    TsgamForecastEstimator,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamOutlierConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
-)
-from tsgam_estimator.tsgam_estimator import (
-    TsgamForecastArConfig as ShimForecastArConfig,
-    TsgamForecastEstimator as ShimForecastEstimator,
+from tsgam import (
+    Estimator,
+    EstimatorConfig,
+    ArConfig,
+    ForecastArConfig,
+    ForecastConfig,
+    ForecastCouplingConfig,
+    ForecastEstimator,
+    LinearConfig,
+    MultiPeriodicConfig,
+    OutlierConfig,
+    SolverConfig,
+    SplineConfig,
 )
 
 
@@ -51,11 +47,11 @@ def _make_ar_data(
     return X, y
 
 
-def _base_config(reg_weight: float = 1.0e-8) -> TsgamEstimatorConfig:
-    return TsgamEstimatorConfig(
+def _base_config(reg_weight: float = 1.0e-8) -> EstimatorConfig:
+    return EstimatorConfig(
         multi_periodic_config=None,
-        exog_config=[TsgamLinearConfig(lags=[0], reg_weight=reg_weight)],
-        solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+        exog_config=[LinearConfig(lags=[0], reg_weight=reg_weight)],
+        solver_config=SolverConfig(solver="CLARABEL", verbose=False),
     )
 
 
@@ -64,16 +60,16 @@ def _forecast_config(
     *,
     mode: str = "independent",
     roughness_weight: float = 0.0,
-    base_config: TsgamEstimatorConfig | None = None,
-    forecast_ar_config: TsgamForecastArConfig | None = None,
+    base_config: EstimatorConfig | None = None,
+    forecast_ar_config: ForecastArConfig | None = None,
     include_nowcast: bool = True,
-) -> TsgamForecastConfig:
+) -> ForecastConfig:
     coupling_config = None
     if mode == "coupled":
-        coupling_config = TsgamForecastCouplingConfig(
+        coupling_config = ForecastCouplingConfig(
             roughness_weight=roughness_weight,
         )
-    return TsgamForecastConfig(
+    return ForecastConfig(
         horizon=horizon,
         base_config=base_config or _base_config(),
         mode=mode,
@@ -87,16 +83,16 @@ def _manual_shifted_fit(
     X: pd.DataFrame,
     y: np.ndarray,
     horizon: int,
-) -> TsgamEstimator:
+) -> Estimator:
     shifted_X = X.copy() if horizon == 0 else X.iloc[:-horizon].copy()
     shifted_X.index = shifted_X.index + pd.Timedelta(hours=horizon)
-    estimator = TsgamEstimator(config=_base_config())
+    estimator = Estimator(config=_base_config())
     estimator.fit(shifted_X, y[horizon:])
     return estimator
 
 
 def _predict_from_origin(
-    estimator: TsgamEstimator,
+    estimator: Estimator,
     X: pd.DataFrame,
     horizon: int,
 ) -> np.ndarray:
@@ -107,7 +103,7 @@ def _predict_from_origin(
 
 def test_independent_forecast_predict_returns_dataframe_columns():
     X, y = _make_data()
-    estimator = TsgamForecastEstimator(config=_forecast_config(horizon=3))
+    estimator = ForecastEstimator(config=_forecast_config(horizon=3))
 
     estimator.fit(X, y)
     predictions = estimator.predict(X.iloc[-10:])
@@ -126,7 +122,7 @@ def test_independent_forecast_predict_returns_dataframe_columns():
 @pytest.mark.parametrize("mode", ["independent", "coupled"])
 def test_forecast_can_exclude_nowcast(mode):
     X, y = _make_data()
-    estimator = TsgamForecastEstimator(
+    estimator = ForecastEstimator(
         config=_forecast_config(
             horizon=3,
             mode=mode,
@@ -159,7 +155,7 @@ def test_forecast_can_exclude_nowcast(mode):
 
 def test_independent_forecast_aligns_child_models_to_target_time():
     X, y = _make_data()
-    estimator = TsgamForecastEstimator(config=_forecast_config(horizon=4))
+    estimator = ForecastEstimator(config=_forecast_config(horizon=4))
 
     estimator.fit(X, y)
 
@@ -174,7 +170,7 @@ def test_independent_forecast_matches_manual_shifted_regressions():
     X, y = _make_data()
     horizon = 3
     X_future = X.iloc[-12:]
-    forecast_estimator = TsgamForecastEstimator(
+    forecast_estimator = ForecastEstimator(
         config=_forecast_config(horizon=horizon)
     )
 
@@ -194,7 +190,7 @@ def test_independent_forecast_matches_manual_shifted_regressions():
 
 def test_coupled_zero_roughness_matches_manual_shifted_regressions():
     X, y = _make_data()
-    forecast_estimator = TsgamForecastEstimator(
+    forecast_estimator = ForecastEstimator(
         config=_forecast_config(horizon=2, mode="coupled", roughness_weight=0.0)
     )
 
@@ -220,20 +216,20 @@ def test_coupled_zero_roughness_matches_nonlinear_independent_fit():
     )
     y = 1 + X[0].to_numpy() ** 2 + X.prod(axis=1).to_numpy()
     weights = rng.uniform(0.5, 2, len(X))
-    base = TsgamEstimatorConfig(
+    base = EstimatorConfig(
         exog_config=[
-            TsgamSplineConfig(knots=np.linspace(-1, 1, 5), lags=[0, 1]),
-            TsgamLinearConfig(lags=[0]),
+            SplineConfig(knots=np.linspace(-1, 1, 5), lags=[0, 1]),
+            LinearConfig(lags=[0]),
         ],
         interaction_pairs=[(0, 1)],
-        multi_periodic_config=TsgamMultiPeriodicConfig(
+        multi_periodic_config=MultiPeriodicConfig(
             num_harmonics=[2], periods=[24],
         ),
-        solver_config=TsgamSolverConfig(solver="CLARABEL"),
+        solver_config=SolverConfig(solver="CLARABEL"),
     )
     predictions = []
     for mode in ("independent", "coupled"):
-        model = TsgamForecastEstimator(
+        model = ForecastEstimator(
             config=_forecast_config(horizon=2, mode=mode, base_config=base)
         ).fit(X, y, sample_weight=weights)
         predictions.append(model.predict(X.iloc[-12:]).to_numpy())
@@ -254,7 +250,7 @@ def test_coupled_forecast_uses_shared_design_module(monkeypatch):
         "build_tsgam_design",
         tracking_build_design,
     )
-    TsgamForecastEstimator(
+    ForecastEstimator(
         config=_forecast_config(horizon=2, mode="coupled", roughness_weight=0.0)
     ).fit(X, y)
 
@@ -269,10 +265,10 @@ def test_coupled_roughness_smooths_horizon_coefficients():
     for h, coef in enumerate(true_horizon_coefs, start=1):
         y[h:] += coef * x[:-h]
 
-    unsmoothed = TsgamForecastEstimator(
+    unsmoothed = ForecastEstimator(
         config=_forecast_config(horizon=4, mode="coupled", roughness_weight=0.0)
     ).fit(X, y)
-    smoothed = TsgamForecastEstimator(
+    smoothed = ForecastEstimator(
         config=_forecast_config(horizon=4, mode="coupled", roughness_weight=100.0)
     ).fit(X, y)
 
@@ -288,10 +284,10 @@ def test_coupled_roughness_smooths_horizon_coefficients():
 
 def test_coupling_does_not_bias_horizon_zero_nowcast():
     X, y = _make_data(n_samples=120)
-    independent = TsgamForecastEstimator(
+    independent = ForecastEstimator(
         config=_forecast_config(horizon=4, mode="independent")
     ).fit(X, y)
-    coupled = TsgamForecastEstimator(
+    coupled = ForecastEstimator(
         config=_forecast_config(horizon=4, mode="coupled", roughness_weight=100.0)
     ).fit(X, y)
 
@@ -302,17 +298,12 @@ def test_coupling_does_not_bias_horizon_zero_nowcast():
     np.testing.assert_allclose(coupled_h0, independent_h0, rtol=1e-5, atol=1e-5)
 
 
-def test_public_forecast_imports_are_available():
-    assert ShimForecastEstimator is TsgamForecastEstimator
-    assert ShimForecastArConfig is TsgamForecastArConfig
-
-
 def test_direct_forecast_ar_recovers_planted_coefficient():
     X, y = _make_ar_data()
-    estimator = TsgamForecastEstimator(
+    estimator = ForecastEstimator(
         config=_forecast_config(
             horizon=2,
-            forecast_ar_config=TsgamForecastArConfig(
+            forecast_ar_config=ForecastArConfig(
                 lags=[0],
                 reg_weight=1.0e-8,
             ),
@@ -335,12 +326,12 @@ def test_direct_forecast_ar_recovers_planted_coefficient():
 @pytest.mark.parametrize("mode", ["independent", "coupled"])
 def test_forecast_ar_can_exclude_nowcast(mode):
     X, y = _make_ar_data()
-    estimator = TsgamForecastEstimator(
+    estimator = ForecastEstimator(
         config=_forecast_config(
             horizon=2,
             mode=mode,
             roughness_weight=0.0,
-            forecast_ar_config=TsgamForecastArConfig(
+            forecast_ar_config=ForecastArConfig(
                 lags=[0],
                 reg_weight=1.0e-8,
             ),
@@ -363,11 +354,11 @@ def test_forecast_ar_can_exclude_nowcast(mode):
 
 def test_direct_forecast_ar_does_not_change_horizon_zero():
     X, y = _make_ar_data(n_samples=180)
-    baseline = TsgamForecastEstimator(config=_forecast_config(horizon=2)).fit(X, y)
-    autoregressive = TsgamForecastEstimator(
+    baseline = ForecastEstimator(config=_forecast_config(horizon=2)).fit(X, y)
+    autoregressive = ForecastEstimator(
         config=_forecast_config(
             horizon=2,
-            forecast_ar_config=TsgamForecastArConfig(lags=[0, 1, 2]),
+            forecast_ar_config=ForecastArConfig(lags=[0, 1, 2]),
         )
     ).fit(X, y)
 
@@ -382,10 +373,10 @@ def test_direct_forecast_ar_does_not_change_horizon_zero():
 
 def test_direct_forecast_ar_history_lookup_is_causal_per_origin():
     X, y = _make_ar_data(n_samples=160)
-    estimator = TsgamForecastEstimator(
+    estimator = ForecastEstimator(
         config=_forecast_config(
             horizon=2,
-            forecast_ar_config=TsgamForecastArConfig(lags=[0, 2]),
+            forecast_ar_config=ForecastArConfig(lags=[0, 2]),
         )
     ).fit(X, y)
     origins = X.index[-12:-6]
@@ -402,14 +393,14 @@ def test_direct_forecast_ar_history_lookup_is_causal_per_origin():
 
 def test_zero_coupling_forecast_ar_matches_independent_fit():
     X, y = _make_ar_data(n_samples=220)
-    ar_config = TsgamForecastArConfig(lags=[0, 1], reg_weight=1.0e-6)
-    independent = TsgamForecastEstimator(
+    ar_config = ForecastArConfig(lags=[0, 1], reg_weight=1.0e-6)
+    independent = ForecastEstimator(
         config=_forecast_config(
             horizon=3,
             forecast_ar_config=ar_config,
         )
     ).fit(X, y)
-    coupled = TsgamForecastEstimator(
+    coupled = ForecastEstimator(
         config=_forecast_config(
             horizon=3,
             mode="coupled",
@@ -436,8 +427,8 @@ def test_zero_coupling_forecast_ar_matches_independent_fit():
 
 def test_coupling_smooths_direct_forecast_ar_coefficients():
     X, y = _make_ar_data(n_samples=120)
-    ar_config = TsgamForecastArConfig(lags=[0], reg_weight=1.0e-8)
-    uncoupled = TsgamForecastEstimator(
+    ar_config = ForecastArConfig(lags=[0], reg_weight=1.0e-8)
+    uncoupled = ForecastEstimator(
         config=_forecast_config(
             horizon=6,
             mode="coupled",
@@ -445,7 +436,7 @@ def test_coupling_smooths_direct_forecast_ar_coefficients():
             forecast_ar_config=ar_config,
         )
     ).fit(X, y)
-    smoothed = TsgamForecastEstimator(
+    smoothed = ForecastEstimator(
         config=_forecast_config(
             horizon=6,
             mode="coupled",
@@ -461,10 +452,10 @@ def test_coupling_smooths_direct_forecast_ar_coefficients():
 
 def test_forecast_ar_requires_sufficient_prediction_history():
     X, y = _make_ar_data(n_samples=120)
-    estimator = TsgamForecastEstimator(
+    estimator = ForecastEstimator(
         config=_forecast_config(
             horizon=1,
-            forecast_ar_config=TsgamForecastArConfig(lags=[0, 3]),
+            forecast_ar_config=ForecastArConfig(lags=[0, 3]),
         )
     ).fit(X, y)
     X_eval = X.iloc[-5:]
@@ -480,10 +471,10 @@ def test_forecast_ar_requires_sufficient_prediction_history():
 
 def test_forecast_config_rejects_generative_residual_ar():
     base_config = _base_config()
-    base_config.ar_config = TsgamArConfig(lags=[1])
+    base_config.ar_config = ArConfig(lags=[1])
 
     with pytest.raises(ValueError, match="stochastic sampling"):
-        TsgamForecastConfig(horizon=1, base_config=base_config)
+        ForecastConfig(horizon=1, base_config=base_config)
 
 
 @pytest.mark.parametrize(
@@ -492,12 +483,12 @@ def test_forecast_config_rejects_generative_residual_ar():
 )
 def test_forecast_ar_rejects_invalid_lags(lags):
     with pytest.raises(ValueError, match="lags"):
-        TsgamForecastArConfig(lags=lags)
+        ForecastArConfig(lags=lags)
 
 
 def test_coupled_forecast_rejects_irregular_predict_origins():
     X, y = _make_data()
-    estimator = TsgamForecastEstimator(
+    estimator = ForecastEstimator(
         config=_forecast_config(horizon=2, mode="coupled", roughness_weight=0.0)
     )
     estimator.fit(X, y)
@@ -508,19 +499,19 @@ def test_coupled_forecast_rejects_irregular_predict_origins():
 
 
 def test_forecast_horizon_validation():
-    config = TsgamForecastConfig(horizon=0, base_config=_base_config())
+    config = ForecastConfig(horizon=0, base_config=_base_config())
     assert config.horizon == 0
 
     with pytest.raises(ValueError, match="horizon must be non-negative"):
-        TsgamForecastConfig(horizon=-1, base_config=_base_config())
+        ForecastConfig(horizon=-1, base_config=_base_config())
     with pytest.raises(ValueError, match="at least 1"):
-        TsgamForecastConfig(
+        ForecastConfig(
             horizon=0,
             base_config=_base_config(),
             include_nowcast=False,
         )
     with pytest.raises(TypeError, match="include_nowcast must be a boolean"):
-        TsgamForecastConfig(
+        ForecastConfig(
             horizon=1,
             base_config=_base_config(),
             include_nowcast=1,  # type: ignore[arg-type]
@@ -528,17 +519,17 @@ def test_forecast_horizon_validation():
 
 
 def test_forecast_config_rejects_ignored_or_invalid_coupling_config():
-    coupling = TsgamForecastCouplingConfig()
+    coupling = ForecastCouplingConfig()
 
     with pytest.raises(ValueError, match="only valid when mode='coupled'"):
-        TsgamForecastConfig(
+        ForecastConfig(
             horizon=1,
             base_config=_base_config(),
             mode="independent",
             coupling_config=coupling,
         )
-    with pytest.raises(TypeError, match="TsgamForecastCouplingConfig"):
-        TsgamForecastConfig(
+    with pytest.raises(TypeError, match="ForecastCouplingConfig"):
+        ForecastConfig(
             horizon=1,
             base_config=_base_config(),
             mode="coupled",
@@ -549,13 +540,13 @@ def test_forecast_config_rejects_ignored_or_invalid_coupling_config():
 @pytest.mark.parametrize("roughness_order", [True, 0, 3, 1.5, None])
 def test_forecast_coupling_rejects_invalid_roughness_order(roughness_order):
     with pytest.raises(ValueError, match="roughness_order must be 1 or 2"):
-        TsgamForecastCouplingConfig(roughness_order=roughness_order)
+        ForecastCouplingConfig(roughness_order=roughness_order)
 
 
 @pytest.mark.parametrize("mode", ["independent", "coupled"])
 def test_horizon_zero_fits_nowcast_only(mode):
     X, y = _make_data()
-    estimator = TsgamForecastEstimator(
+    estimator = ForecastEstimator(
         config=_forecast_config(horizon=0, mode=mode, roughness_weight=1.0)
     ).fit(X, y)
 
@@ -568,13 +559,13 @@ def test_horizon_zero_fits_nowcast_only(mode):
 
 def test_coupled_forecast_rejects_outlier_config():
     X, y = _make_data()
-    base_config = TsgamEstimatorConfig(
+    base_config = EstimatorConfig(
         multi_periodic_config=None,
-        exog_config=[TsgamLinearConfig(lags=[0])],
-        outlier_config=TsgamOutlierConfig(reg_weight=0.01),
-        solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+        exog_config=[LinearConfig(lags=[0])],
+        outlier_config=OutlierConfig(reg_weight=0.01),
+        solver_config=SolverConfig(solver="CLARABEL", verbose=False),
     )
-    estimator = TsgamForecastEstimator(
+    estimator = ForecastEstimator(
         config=_forecast_config(horizon=2, mode="coupled", base_config=base_config)
     )
 

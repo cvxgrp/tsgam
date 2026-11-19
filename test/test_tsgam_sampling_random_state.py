@@ -4,10 +4,10 @@
 import numpy as np
 import pandas as pd
 
-from tsgam_estimator import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamSolverConfig,
+from tsgam import (
+    Estimator,
+    EstimatorConfig,
+    SolverConfig,
 )
 
 
@@ -21,13 +21,13 @@ def _make_simple_data(n_samples=200, seed=0):
 
 def test_sample_uses_config_random_state_when_argument_is_none():
     X, y = _make_simple_data()
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=None,
         exog_config=None,
-        solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+        solver_config=SolverConfig(solver="CLARABEL", verbose=False),
         random_state=123,
     )
-    est = TsgamEstimator(config=config)
+    est = Estimator(config=config)
     est.fit(X, y)
 
     samples1 = est.sample(X, n_samples=3)

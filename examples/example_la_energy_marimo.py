@@ -55,20 +55,20 @@ def _():
     from scipy import stats
     from signaldecomp.spline import make_spline_basis
 
-    # Add src directory to path to import tsgam_estimator
+    # Add src directory to path to import tsgam
     _project_root = Path(__file__).parent.parent
     _src_dir = _project_root / 'src'
     if str(_src_dir) not in sys.path:
         sys.path.insert(0, str(_src_dir))
 
-    from tsgam_estimator import (
-        TsgamEstimator,
-        TsgamEstimatorConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSplineConfig,
-        TsgamArConfig,
-        TsgamOutlierConfig,
-        TsgamSolverConfig,
+    from tsgam import (
+        Estimator,
+        EstimatorConfig,
+        MultiPeriodicConfig,
+        SplineConfig,
+        ArConfig,
+        OutlierConfig,
+        SolverConfig,
         PERIOD_HOURLY_DAILY,
         PERIOD_HOURLY_WEEKLY,
         PERIOD_HOURLY_YEARLY
@@ -79,13 +79,13 @@ def _():
         PERIOD_HOURLY_WEEKLY,
         PERIOD_HOURLY_YEARLY,
         Path,
-        TsgamArConfig,
-        TsgamEstimator,
-        TsgamEstimatorConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamOutlierConfig,
-        TsgamSolverConfig,
-        TsgamSplineConfig,
+        ArConfig,
+        Estimator,
+        EstimatorConfig,
+        MultiPeriodicConfig,
+        OutlierConfig,
+        SolverConfig,
+        SplineConfig,
         make_basis_matrix,
         make_spline_basis,
         mo,
@@ -626,13 +626,13 @@ def _(
     PERIOD_HOURLY_DAILY,
     PERIOD_HOURLY_WEEKLY,
     PERIOD_HOURLY_YEARLY,
-    TsgamArConfig,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamOutlierConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
+    ArConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    OutlierConfig,
+    SolverConfig,
+    SplineConfig,
     X_train,
     fit_model,
     mo,
@@ -656,7 +656,7 @@ def _(
 
     # Multi-periodic Fourier configuration
     # For one year of data, we use yearly, weekly, and daily periods
-    multi_periodic_config = TsgamMultiPeriodicConfig(
+    multi_periodic_config = MultiPeriodicConfig(
         num_harmonics=[4, 4, 6],  # yearly, weekly, daily
         periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
         reg_weight=6e-5
@@ -670,31 +670,31 @@ def _(
 
     # Define configurations for each weather variable
     var_configs = {
-        'temperature_degF': TsgamSplineConfig(
+        'temperature_degF': SplineConfig(
             n_knots=10,
             lags=[-3, -2, -1, 0],  # Current and 1-3 hours back
             reg_weight=6e-5,
             diff_reg_weight=0.5
         ),
-        'humidity_pc': TsgamSplineConfig(
+        'humidity_pc': SplineConfig(
             n_knots=8,
             lags=[-2, -1, 0],  # Current and 1-2 hours back
             reg_weight=6e-5,
             diff_reg_weight=0.5
         ),
-        'global_Wpms': TsgamSplineConfig(
+        'global_Wpms': SplineConfig(
             n_knots=8,
             lags=[-1, 0],
             reg_weight=6e-5,
             diff_reg_weight=0.5
         ),
-        'direct_Wpms': TsgamSplineConfig(
+        'direct_Wpms': SplineConfig(
             n_knots=8,
             lags=[-1, 0],
             reg_weight=6e-5,
             diff_reg_weight=0.5
         ),
-        'diffuse_Wpms': TsgamSplineConfig(
+        'diffuse_Wpms': SplineConfig(
             n_knots=8,
             lags=[-1, 0],
             reg_weight=6e-5,
@@ -709,7 +709,7 @@ def _(
             exog_config.append(var_configs[var_name])
         else:
             # Fallback configuration for unknown variables
-            exog_config.append(TsgamSplineConfig(
+            exog_config.append(SplineConfig(
                 n_knots=8,
                 lags=[0],
                 reg_weight=6e-5,
@@ -721,7 +721,7 @@ def _(
     # AR configuration
     ar_config = None
     if use_ar.value:
-        ar_config = TsgamArConfig(
+        ar_config = ArConfig(
             lags=[1, 2, 3, 4],
             l1_constraint=0.97
         )
@@ -729,19 +729,19 @@ def _(
     # Outlier detector configuration
     outlier_config = None
     if use_outlier.value:
-        outlier_config = TsgamOutlierConfig(
+        outlier_config = OutlierConfig(
             reg_weight=outlier_reg_weight.value,
             period_hours=24.0  # Daily outliers
         )
 
     # Solver configuration
-    solver_config = TsgamSolverConfig(
+    solver_config = SolverConfig(
         solver=solver_select.value,
         verbose=verbose.value
     )
 
     # Create main config
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=multi_periodic_config,
         exog_config=exog_config,
         ar_config=ar_config,
@@ -753,7 +753,7 @@ def _(
     # Create and fit estimator
     print("\nCreating and fitting TSGAM estimator...")
     print(f"Training data has {len(X_train)} samples with gaps (missing last week of each month)")
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
 
     print("Fitting model (this may take a few minutes)...")
     estimator.fit(X_train, y_train_log)
@@ -1583,13 +1583,13 @@ def _(
     PERIOD_HOURLY_DAILY,
     PERIOD_HOURLY_WEEKLY,
     PERIOD_HOURLY_YEARLY,
-    TsgamArConfig,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamOutlierConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
+    ArConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    OutlierConfig,
+    SolverConfig,
+    SplineConfig,
     X_predict,
     X_test,
     X_train,
@@ -1632,7 +1632,7 @@ def _(
     # 2. Harmonics only (yearly)
     ablation_configs.append({
         'name': 'Harmonics: Yearly only',
-        'multi_periodic': TsgamMultiPeriodicConfig(
+        'multi_periodic': MultiPeriodicConfig(
             num_harmonics=[4, 0, 0],
             periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
             reg_weight=6e-5
@@ -1645,7 +1645,7 @@ def _(
     # 3. Harmonics only (weekly)
     ablation_configs.append({
         'name': 'Harmonics: Weekly only',
-        'multi_periodic': TsgamMultiPeriodicConfig(
+        'multi_periodic': MultiPeriodicConfig(
             num_harmonics=[0, 4, 0],
             periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
             reg_weight=6e-5
@@ -1658,7 +1658,7 @@ def _(
     # 4. Harmonics only (daily)
     ablation_configs.append({
         'name': 'Harmonics: Daily only',
-        'multi_periodic': TsgamMultiPeriodicConfig(
+        'multi_periodic': MultiPeriodicConfig(
             num_harmonics=[0, 0, 6],
             periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
             reg_weight=6e-5
@@ -1671,7 +1671,7 @@ def _(
     # 5. All harmonics (yearly + weekly + daily)
     ablation_configs.append({
         'name': 'Harmonics: All (yearly + weekly + daily)',
-        'multi_periodic': TsgamMultiPeriodicConfig(
+        'multi_periodic': MultiPeriodicConfig(
             num_harmonics=[4, 4, 6],
             periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
             reg_weight=6e-5
@@ -1685,17 +1685,17 @@ def _(
     if len(weather_cols) > 0 and X_train.shape[1] > 0:
         exog_config_ablation = []
         var_configs_ablation = {
-            'temperature_degF': TsgamSplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'humidity_pc': TsgamSplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'global_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'direct_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'diffuse_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'temperature_degF': SplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'humidity_pc': SplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'global_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'direct_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'diffuse_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
         }
         for _var_name_ablation in X_train.columns:
             if _var_name_ablation in var_configs_ablation:
                 exog_config_ablation.append(var_configs_ablation[_var_name_ablation])
             else:
-                exog_config_ablation.append(TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
+                exog_config_ablation.append(SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
 
         ablation_configs.append({
             'name': 'Exogenous only',
@@ -1709,21 +1709,21 @@ def _(
     if len(weather_cols) > 0 and X_train.shape[1] > 0:
         exog_config_ablation = []
         var_configs_ablation = {
-            'temperature_degF': TsgamSplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'humidity_pc': TsgamSplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'global_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'direct_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'diffuse_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'temperature_degF': SplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'humidity_pc': SplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'global_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'direct_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'diffuse_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
         }
         for _var_name_ablation in X_train.columns:
             if _var_name_ablation in var_configs_ablation:
                 exog_config_ablation.append(var_configs_ablation[_var_name_ablation])
             else:
-                exog_config_ablation.append(TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
+                exog_config_ablation.append(SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
 
         ablation_configs.append({
             'name': 'Harmonics (all) + Exogenous',
-            'multi_periodic': TsgamMultiPeriodicConfig(
+            'multi_periodic': MultiPeriodicConfig(
                 num_harmonics=[4, 4, 6],
                 periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
                 reg_weight=6e-5
@@ -1737,128 +1737,128 @@ def _(
     if len(weather_cols) > 0 and X_train.shape[1] > 0:
         exog_config_ablation = []
         var_configs_ablation = {
-            'temperature_degF': TsgamSplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'humidity_pc': TsgamSplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'global_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'direct_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'diffuse_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'temperature_degF': SplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'humidity_pc': SplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'global_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'direct_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'diffuse_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
         }
         for _var_name_ablation in X_train.columns:
             if _var_name_ablation in var_configs_ablation:
                 exog_config_ablation.append(var_configs_ablation[_var_name_ablation])
             else:
-                exog_config_ablation.append(TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
+                exog_config_ablation.append(SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
 
         ablation_configs.append({
             'name': 'Harmonics (all) + Exogenous + AR',
-            'multi_periodic': TsgamMultiPeriodicConfig(
+            'multi_periodic': MultiPeriodicConfig(
                 num_harmonics=[4, 4, 6],
                 periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
                 reg_weight=6e-5
             ),
             'exog': exog_config_ablation,
-            'ar': TsgamArConfig(lags=[1, 2, 3, 4], l1_constraint=0.97),
+            'ar': ArConfig(lags=[1, 2, 3, 4], l1_constraint=0.97),
             'outlier': None
         })
 
     # 9. Harmonics (all) + Outlier detector
     ablation_configs.append({
         'name': 'Harmonics (all) + Outlier detector',
-        'multi_periodic': TsgamMultiPeriodicConfig(
+        'multi_periodic': MultiPeriodicConfig(
             num_harmonics=[4, 4, 6],
             periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
             reg_weight=6e-5
         ),
         'exog': None,
         'ar': None,
-        'outlier': TsgamOutlierConfig(reg_weight=1e-4, period_hours=24.0)
+        'outlier': OutlierConfig(reg_weight=1e-4, period_hours=24.0)
     })
 
     # 10. All harmonics + Exogenous + Outlier detector
     if len(weather_cols) > 0 and X_train.shape[1] > 0:
         exog_config_ablation = []
         var_configs_ablation = {
-            'temperature_degF': TsgamSplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'humidity_pc': TsgamSplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'global_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'direct_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'diffuse_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'temperature_degF': SplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'humidity_pc': SplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'global_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'direct_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'diffuse_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
         }
         for _var_name_ablation in X_train.columns:
             if _var_name_ablation in var_configs_ablation:
                 exog_config_ablation.append(var_configs_ablation[_var_name_ablation])
             else:
-                exog_config_ablation.append(TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
+                exog_config_ablation.append(SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
 
         ablation_configs.append({
             'name': 'Harmonics (all) + Exogenous + Outlier detector',
-            'multi_periodic': TsgamMultiPeriodicConfig(
+            'multi_periodic': MultiPeriodicConfig(
                 num_harmonics=[4, 4, 6],
                 periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
                 reg_weight=6e-5
             ),
             'exog': exog_config_ablation,
             'ar': None,
-            'outlier': TsgamOutlierConfig(reg_weight=1e-4, period_hours=24.0)
+            'outlier': OutlierConfig(reg_weight=1e-4, period_hours=24.0)
         })
 
     # 11. All harmonics + Exogenous + AR + Outlier detector
     if len(weather_cols) > 0 and X_train.shape[1] > 0:
         exog_config_ablation = []
         var_configs_ablation = {
-            'temperature_degF': TsgamSplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'humidity_pc': TsgamSplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'global_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'direct_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'diffuse_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'temperature_degF': SplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'humidity_pc': SplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'global_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'direct_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'diffuse_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
         }
         for _var_name_ablation in X_train.columns:
             if _var_name_ablation in var_configs_ablation:
                 exog_config_ablation.append(var_configs_ablation[_var_name_ablation])
             else:
-                exog_config_ablation.append(TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
+                exog_config_ablation.append(SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
 
         ablation_configs.append({
             'name': 'Harmonics (all) + Exogenous + AR + Outlier detector',
-            'multi_periodic': TsgamMultiPeriodicConfig(
+            'multi_periodic': MultiPeriodicConfig(
                 num_harmonics=[4, 4, 6],
                 periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
                 reg_weight=6e-5
             ),
             'exog': exog_config_ablation,
-            'ar': TsgamArConfig(lags=[1, 2, 3, 4], l1_constraint=0.97),
-            'outlier': TsgamOutlierConfig(reg_weight=1e-4, period_hours=24.0)
+            'ar': ArConfig(lags=[1, 2, 3, 4], l1_constraint=0.97),
+            'outlier': OutlierConfig(reg_weight=1e-4, period_hours=24.0)
         })
 
     # 12. Full model (all components) - matches main model config
     if len(weather_cols) > 0 and X_train.shape[1] > 0:
         exog_config_ablation = []
         var_configs_ablation = {
-            'temperature_degF': TsgamSplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'humidity_pc': TsgamSplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'global_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'direct_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-            'diffuse_Wpms': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'temperature_degF': SplineConfig(n_knots=10, lags=[-3, -2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'humidity_pc': SplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'global_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'direct_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+            'diffuse_Wpms': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
         }
         for _var_name_ablation in X_train.columns:
             if _var_name_ablation in var_configs_ablation:
                 exog_config_ablation.append(var_configs_ablation[_var_name_ablation])
             else:
-                exog_config_ablation.append(TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
+                exog_config_ablation.append(SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5))
 
         outlier_config_ablation = None
         if use_outlier.value:
-            outlier_config_ablation = TsgamOutlierConfig(reg_weight=1e-4, period_hours=24.0)
+            outlier_config_ablation = OutlierConfig(reg_weight=1e-4, period_hours=24.0)
 
         ablation_configs.append({
             'name': 'Full model (all components)',
-            'multi_periodic': TsgamMultiPeriodicConfig(
+            'multi_periodic': MultiPeriodicConfig(
                 num_harmonics=[4, 4, 6],
                 periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
                 reg_weight=6e-5
             ),
             'exog': exog_config_ablation,
-            'ar': TsgamArConfig(lags=[1, 2, 3, 4], l1_constraint=0.97) if use_ar.value else None,
+            'ar': ArConfig(lags=[1, 2, 3, 4], l1_constraint=0.97) if use_ar.value else None,
             'outlier': outlier_config_ablation
         })
 
@@ -1871,12 +1871,12 @@ def _(
 
         try:
             # Create config
-            solver_config_ablation = TsgamSolverConfig(
+            solver_config_ablation = SolverConfig(
                 solver='CLARABEL',
                 verbose=False  # Less verbose for ablation
             )
 
-            config_ablation = TsgamEstimatorConfig(
+            config_ablation = EstimatorConfig(
                 multi_periodic_config=config_dict['multi_periodic'],
                 exog_config=config_dict['exog'],
                 ar_config=config_dict['ar'],
@@ -1886,7 +1886,7 @@ def _(
             )
 
             # Create and fit estimator
-            estimator_ablation = TsgamEstimator(config=config_ablation)
+            estimator_ablation = Estimator(config=config_ablation)
 
             # Handle case where no exogenous variables are used
             if config_dict['exog'] is None or X_train.shape[1] == 0:

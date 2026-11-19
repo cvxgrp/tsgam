@@ -10,10 +10,10 @@ import numpy as np
 import pandas as pd
 from signaldecomp import components_to_frame
 from signaldecomp.basis import make_basis_matrix, cross_bases, initialize_arrays
-from tsgam_estimator import TsgamEstimator
+from tsgam import Estimator
 
 
-def fitted_components(estimator: TsgamEstimator, index: pd.DatetimeIndex) -> pd.DataFrame:
+def fitted_components(estimator: Estimator, index: pd.DatetimeIndex) -> pd.DataFrame:
     """Report native fitted components, preserving missing/unsupported rows."""
     decomposition = estimator.decomposition_
     grid = pd.date_range(

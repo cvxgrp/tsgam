@@ -15,7 +15,7 @@
 * Prefer notebook structure: configuration-first cells, concise section headers, analysis-first plots, and factored plotting/helpers over tutorial exposition or long inline blocks.
 * Prefer human-readable station selection, such as `example_tidal.find_station` or `load_station` with `STATION_CATALOG`, over raw numeric station IDs when it improves clarity.
 * For large notebook refactors, tight context, or resource limits, prefer small focused edits with incremental review. Before large tidal-notebook refactors, snapshot the current state on a dedicated branch or worktree, but do not leave requested work isolated there without clearly bringing it back or committing it as requested.
-* For user-authored YAML that builds `Tsgam*` configs, validate at the load boundary with explicit discriminators for union fields such as exogenous spline versus linear. Keep existing runtime dataclasses as the constructed target.
+* For user-authored YAML that builds TSGAM configs, validate at the load boundary with explicit discriminators for union fields such as exogenous spline versus linear. Keep existing runtime dataclasses as the constructed target.
 * For tidal or other physics-informed periodic structure, encode known constituent periods and harmonics in multi-periodic config when justified. Define named constituents once and reuse them for diagnostics and models.
 * Prefer `mo.ui.date` over `mo.ui.text` for date inputs in marimo notebooks.
 * Prefer seaborn `sns.set_theme` over manual matplotlib `rcParams` for analysis notebook plot styling.
@@ -30,7 +30,7 @@
 * Fit allows gaps and masks NaNs; predict requires strictly regular timestamps with no gaps.
 * Data-dependent tests use `examples/data/iso` for ISO data files.
 * Tests that use `pandas.read_excel` require `openpyxl` in the dev dependency group so CI with `uv sync --group dev` passes.
-* `TsgamSplineConfig.knots` accepts numpy arrays or lists; use len-based emptiness checks, not truthiness on arrays.
+* `SplineConfig.knots` accepts numpy arrays or lists; use len-based emptiness checks, not truthiness on arrays.
 * `sort_index` defaults to true; when true, sort by index, and when false, require an already sorted index or raise.
 * Fit supports optional `sample_weight` for weighted least squares; the AR step is unweighted.
 * Example and run scripts use Click and Rich from `dependency-groups.examples` and should produce publication-quality figures as PDF and PNG.
@@ -38,11 +38,11 @@
 * In tidal example spline configs, positive lag indices mean the regressor leads the target, so use only lags <= 0 for strictly causal fits.
 * Exogenous interactions are 2-way basis/response-matrix tensor products, default off per factor, and use only lag 0 even when main effects use lag windows.
 * CO-OPS tide-gauge meteorology is often incomplete; merge NCDC LCD hourly weather-station series when fuller regressors are needed.
-* `TsgamSolverConfig` has solver, verbose, warm_start default true, and solver_opts forwarded as kwargs to cvxpy `Problem.solve`.
+* `SolverConfig` has solver, verbose, warm_start default true, and solver_opts forwarded as kwargs to cvxpy `Problem.solve`.
 * CVXPY DPP compliance requires pre-weighting design matrices by `sqrt(w/sum(w))`; products of `cp.Parameter` violate DPP rules.
 * SCS is more robust than CLARABEL for large high-resolution tidal problems.
-* `TsgamEstimatorConfig.exog_config` is required; pass `None` when no exogenous regressors are used.
-* `TsgamMultiPeriodicConfig.periods`, `TsgamTrendConfig.grouping`, and outlier period bucketing use the regular-grid sample index from fit, not raw wall-clock hours.
+* `EstimatorConfig.exog_config` is required; pass `None` when no exogenous regressors are used.
+* `MultiPeriodicConfig.periods`, `TrendConfig.grouping`, and outlier period bucketing use the regular-grid sample index from fit, not raw wall-clock hours.
 * Multiply intended hour-based widths by `samples_per_hour` for sub-hourly data.
 * Marimo cells cannot use implicit globals; names must be imported or returned from earlier cells.
 * Avoid early return in `@app.cell`; prefer a single-exit cell shape.

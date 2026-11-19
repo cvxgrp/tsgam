@@ -126,14 +126,14 @@ def _(
         infer_samples_per_hour,
         fitted_components,
     )
-    from tsgam_estimator import (
+    from tsgam import (
         TrendType,
-        TsgamEstimator,
-        TsgamEstimatorConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
-        TsgamSplineConfig,
-        TsgamTrendConfig,
+        Estimator,
+        EstimatorConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
+        SplineConfig,
+        TrendConfig,
     )
 
     _DATA_DIR = Path(__file__).resolve().parent / "data" / "tidal"
@@ -320,7 +320,7 @@ def _(
             p_hours = TIDAL_CONSTITUENT_PERIODS_HOURS[label]
             periods.append(p_hours * sph)
             harmonics.append(harmonic_map.get(label, int(TIDAL_CONSTITUENT_HARMONICS[label])))
-        return TsgamMultiPeriodicConfig(
+        return MultiPeriodicConfig(
             num_harmonics=harmonics,
             periods=periods,
             reg_weight=fourier_reg_weight,
@@ -383,15 +383,15 @@ def _(
         )
         trend_config = None
         if trend_enabled:
-            trend_config = TsgamTrendConfig(
+            trend_config = TrendConfig(
                 trend_type=TrendType.LINEAR,
                 grouping=trend_grouping_days * 24.0 * sph,
             )
         solver_opts = parse_solver_options(solver_options_text) or None
-        solver_config = TsgamSolverConfig(
+        solver_config = SolverConfig(
             solver=solver_name, verbose=False, solver_opts=solver_opts,
         )
-        est = TsgamEstimator(config=TsgamEstimatorConfig(
+        est = Estimator(config=EstimatorConfig(
             multi_periodic_config=multi_periodic,
             exog_config=exog_config,
             trend_config=trend_config,
@@ -406,10 +406,10 @@ def _(
 
         metrics = tidal_metrics(prepared["y_test"], y_pred_test)
 
-        fourier_est = TsgamEstimator(config=TsgamEstimatorConfig(
+        fourier_est = Estimator(config=EstimatorConfig(
             multi_periodic_config=multi_periodic,
             exog_config=None,
-            solver_config=TsgamSolverConfig(solver=solver_name, verbose=False),
+            solver_config=SolverConfig(solver=solver_name, verbose=False),
             random_state=42,
         ))
         fourier_est.fit(

@@ -25,9 +25,9 @@ from ._design import (
 )
 from ._estimator import (
     TrendType,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamLinearConfig,
+    Estimator,
+    EstimatorConfig,
+    LinearConfig,
 )
 from ._problem import (
     evaluate_single_output_prediction,
@@ -39,7 +39,7 @@ from ._sklearn import SklearnConfigMixin
 
 
 @dataclass
-class TsgamForecastCouplingConfig(SklearnConfigMixin):
+class ForecastCouplingConfig(SklearnConfigMixin):
     """
     Configuration for coupled direct multi-horizon forecasts.
 
@@ -81,10 +81,10 @@ class TsgamForecastCouplingConfig(SklearnConfigMixin):
 
 
 @dataclass
-class TsgamForecastArConfig(SklearnConfigMixin):
+class ForecastArConfig(SklearnConfigMixin):
     """Configuration for direct target-history forecast features.
 
-    This is distinct from :class:`TsgamArConfig`, which models residuals for
+    This is distinct from :class:`ArConfig`, which models residuals for
     stochastic sample generation. Here, ``lag=0`` is the target observed at the
     forecast origin, ``lag=1`` is one sample before the origin, and so on.
 
@@ -129,7 +129,7 @@ class TsgamForecastArConfig(SklearnConfigMixin):
 
 
 @dataclass
-class TsgamForecastConfig(SklearnConfigMixin):
+class ForecastConfig(SklearnConfigMixin):
     """
     Configuration for direct multi-horizon forecast mode.
 
@@ -142,16 +142,16 @@ class TsgamForecastConfig(SklearnConfigMixin):
     """
 
     horizon: int
-    base_config: TsgamEstimatorConfig
+    base_config: EstimatorConfig
     mode: Literal["independent", "coupled"] = "independent"
-    coupling_config: TsgamForecastCouplingConfig | None = None
-    forecast_ar_config: TsgamForecastArConfig | None = None
+    coupling_config: ForecastCouplingConfig | None = None
+    forecast_ar_config: ForecastArConfig | None = None
     include_nowcast: bool = True
 
     def __post_init__(self) -> None:
-        if not isinstance(self.base_config, TsgamEstimatorConfig):
+        if not isinstance(self.base_config, EstimatorConfig):
             raise TypeError(
-                "base_config must be a TsgamEstimatorConfig, got "
+                "base_config must be an EstimatorConfig, got "
                 f"{type(self.base_config).__name__}."
             )
         if not isinstance(self.horizon, (int, np.integer)) or isinstance(
@@ -182,31 +182,31 @@ class TsgamForecastConfig(SklearnConfigMixin):
             )
         if self.forecast_ar_config is not None and not isinstance(
             self.forecast_ar_config,
-            TsgamForecastArConfig,
+            ForecastArConfig,
         ):
             raise TypeError(
-                "forecast_ar_config must be a TsgamForecastArConfig or None, got "
+                "forecast_ar_config must be a ForecastArConfig or None, got "
                 f"{type(self.forecast_ar_config).__name__}."
             )
         if self.mode == "independent":
             if self.coupling_config is not None:
                 raise ValueError("coupling_config is only valid when mode='coupled'.")
         elif self.coupling_config is None:
-            self.coupling_config = TsgamForecastCouplingConfig()
-        elif not isinstance(self.coupling_config, TsgamForecastCouplingConfig):
+            self.coupling_config = ForecastCouplingConfig()
+        elif not isinstance(self.coupling_config, ForecastCouplingConfig):
             raise TypeError(
-                "coupling_config must be a TsgamForecastCouplingConfig or None, got "
+                "coupling_config must be a ForecastCouplingConfig or None, got "
                 f"{type(self.coupling_config).__name__}."
             )
 
 
-class TsgamForecastEstimator(RegressorMixin, BaseEstimator):
+class ForecastEstimator(RegressorMixin, BaseEstimator):
     """Direct multi-horizon forecast estimator built on the TSGAM model API."""
 
-    def __init__(self, config: TsgamForecastConfig) -> None:
-        if not isinstance(config, TsgamForecastConfig):
+    def __init__(self, config: ForecastConfig) -> None:
+        if not isinstance(config, ForecastConfig):
             raise TypeError(
-                f"config must be a TsgamForecastConfig, got {type(config).__name__}."
+                f"config must be a ForecastConfig, got {type(config).__name__}."
             )
         self.config = config
 
@@ -217,14 +217,14 @@ class TsgamForecastEstimator(RegressorMixin, BaseEstimator):
     def _forecast_ar_column(self, lag: int) -> str:
         return f"__tsgam_target_history_lag_{lag}"
 
-    def _model_config(self) -> TsgamEstimatorConfig:
+    def _model_config(self) -> EstimatorConfig:
         model_config = deepcopy(self.config.base_config)
         if not self._uses_forecast_ar:
             return model_config
         ar_config = self.config.forecast_ar_config
         assert ar_config is not None
         history_configs = [
-            TsgamLinearConfig(lags=[0], reg_weight=ar_config.reg_weight)
+            LinearConfig(lags=[0], reg_weight=ar_config.reg_weight)
             for _ in ar_config.lags
         ]
         model_config.exog_config = (
@@ -398,7 +398,7 @@ class TsgamForecastEstimator(RegressorMixin, BaseEstimator):
         X: pd.DataFrame,
         y: ndarray,
         sample_weight: ndarray | None = None,
-    ) -> "TsgamForecastEstimator":
+    ) -> "ForecastEstimator":
         """Fit direct models for the configured forecast horizons."""
         X, y, sample_weight = self._prepare_fit_inputs(X, y, sample_weight)
         X, y, sample_weight = self._prepare_forecast_ar_fit_data(
@@ -420,7 +420,7 @@ class TsgamForecastEstimator(RegressorMixin, BaseEstimator):
         X: pd.DataFrame,
         y: ndarray,
         sample_weight: ndarray | None,
-    ) -> "TsgamForecastEstimator":
+    ) -> "ForecastEstimator":
         self.forecast_estimators_ = {}
         for attribute in ("variables_", "horizon_values_", "problem_"):
             self.__dict__.pop(attribute, None)
@@ -431,7 +431,7 @@ class TsgamForecastEstimator(RegressorMixin, BaseEstimator):
             estimator_config = (
                 self.config.base_config if horizon == 0 else self.model_config_
             )
-            estimator = TsgamEstimator(deepcopy(estimator_config))
+            estimator = Estimator(deepcopy(estimator_config))
             if horizon == 0 and self._uses_forecast_ar:
                 base_columns = len(self.config.base_config.exog_config or [])
                 X_horizon = X_horizon.iloc[:, :base_columns]
@@ -493,7 +493,7 @@ class TsgamForecastEstimator(RegressorMixin, BaseEstimator):
         X: pd.DataFrame,
         y: ndarray,
         sample_weight: ndarray | None,
-    ) -> "TsgamForecastEstimator":
+    ) -> "ForecastEstimator":
         self._validate_coupled_config()
         base_config = self.model_config_
         coupling = self.config.coupling_config

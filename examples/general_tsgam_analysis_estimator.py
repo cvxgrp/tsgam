@@ -201,7 +201,7 @@ def _(df):
 @app.cell
 def _(mo):
     mo.md(r"""
-    ## Construct time-series GAM using TsgamEstimator
+    ## Construct time-series GAM using Estimator
     """)
     return
 
@@ -318,12 +318,12 @@ def _(fit_model, mo, solver_slct, trend_slct):
 @app.cell
 def _(
     TrendType,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
-    TsgamTrendConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
+    SplineConfig,
+    TrendConfig,
     data_end,
     data_start,
     df,
@@ -439,7 +439,7 @@ def _(
     # For 15-min data, daily period is _nvals samples = 24 hours
     # Yearly period is 365.2425 * _nvals samples = 365.2425 * 24 hours
 
-    multi_periodic_config = TsgamMultiPeriodicConfig(
+    multi_periodic_config = MultiPeriodicConfig(
         num_harmonics=[6, 10],
         periods=[_period_yearly_hours, _period_daily_hours],
         reg_weight=1e-2
@@ -447,12 +447,12 @@ def _(
 
     # Exogenous variables: temperature and irradiance splines
     exog_config = [
-        TsgamSplineConfig(
+        SplineConfig(
             n_knots=10,
             lags=[0],  # No lead/lag for now
             reg_weight=1e-4
         ),
-        TsgamSplineConfig(
+        SplineConfig(
             n_knots=10,
             lags=[0],
             reg_weight=1e-4
@@ -467,7 +467,7 @@ def _(
         'nonlinear_increasing': TrendType.NONLINEAR_INCREASING,
         'none': TrendType.NONE,
     }
-    trend_config = TsgamTrendConfig(
+    trend_config = TrendConfig(
         trend_type=trend_type_map[trend_slct.value],
         grouping=24.0,  # Daily trend (period in hours)
         reg_weight=10.0
@@ -475,13 +475,13 @@ def _(
 
     # Solver configuration
     solver_name = "MOSEK" if solver_slct.value else "CLARABEL"
-    solver_config = TsgamSolverConfig(
+    solver_config = SolverConfig(
         solver=solver_name,
         verbose=True
     )
 
     # Create main config
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=multi_periodic_config,
         exog_config=exog_config,
         trend_config=trend_config,
@@ -489,7 +489,7 @@ def _(
     )
 
     # Create and fit estimator
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
     estimator.fit(X, y)
 
     # Get predictions
@@ -830,16 +830,16 @@ def _():
     import statsmodels.api as sm
     import sys
 
-    # Add src directory to path to import tsgam_estimator
+    # Add src directory to path to import tsgam
     # This notebook is in Archive/, so parent directory is project root
     _current = Path.cwd()
     if _current.name == 'Archive':
         _project_root = _current.parent
     else:
-        # Try to find project root by looking for src/tsgam_estimator/
+        # Try to find project root by looking for src/tsgam/
         _project_root = _current
         for _ in range(5):  # Max 5 levels up
-            if (_project_root / 'src' / 'tsgam_estimator').exists():
+            if (_project_root / 'src' / 'tsgam').exists():
                 break
             _project_root = _project_root.parent
 
@@ -847,24 +847,24 @@ def _():
     if str(_src_dir) not in sys.path:
         sys.path.insert(0, str(_src_dir))
 
-    from tsgam_estimator import (
+    from tsgam import (
         TrendType,
-        TsgamEstimator,
-        TsgamEstimatorConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSplineConfig,
-        TsgamSolverConfig,
-        TsgamTrendConfig,
+        Estimator,
+        EstimatorConfig,
+        MultiPeriodicConfig,
+        SplineConfig,
+        SolverConfig,
+        TrendConfig,
     )
     return (
         DataHandler,
         TrendType,
-        TsgamEstimator,
-        TsgamEstimatorConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
-        TsgamSplineConfig,
-        TsgamTrendConfig,
+        Estimator,
+        EstimatorConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
+        SplineConfig,
+        TrendConfig,
         mo,
         np,
         pd,
