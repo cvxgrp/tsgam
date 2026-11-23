@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Test AR model fitting and sampling for TsgamEstimator.
+Test AR model fitting and sampling for Estimator.
 
 This test suite verifies that:
 1. AR model is fitted correctly on baseline residuals
@@ -15,13 +15,13 @@ import pytest
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from tsgam_estimator import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSplineConfig,
-    TsgamArConfig,
-    TsgamSolverConfig,
+from tsgam import (
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SplineConfig,
+    ArConfig,
+    SolverConfig,
 )
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / 'examples' / 'data' / 'iso'
@@ -57,24 +57,24 @@ def notebook_ar_coefficients():
 
 @pytest.fixture(scope="module")
 def tsgam_estimator_with_ar(notebook_data):
-    """Fit TsgamEstimator with AR configuration matching notebook."""
+    """Fit Estimator with AR configuration matching notebook."""
     df_subset = notebook_data.loc["2020":"2021"]
     y = np.log(df_subset["RT_Demand"]).values
     X = pd.DataFrame({'temp': df_subset["Dry_Bulb"].values}, index=df_subset.index)
 
     # AR config: 36 lags, L1 constraint 0.95 (matching notebook)
-    ar_config = TsgamArConfig(
+    ar_config = ArConfig(
         lags=list(range(1, 37)),  # 36 lags: [1, 2, ..., 36]
         l1_constraint=0.95
     )
 
-    config = TsgamEstimatorConfig(
-        multi_periodic_config=TsgamMultiPeriodicConfig(
+    config = EstimatorConfig(
+        multi_periodic_config=MultiPeriodicConfig(
             num_harmonics=[6, 4, 3],
             periods=[365.2425 * 24, 7 * 24, 24]
         ),
         exog_config=[
-            TsgamSplineConfig(
+            SplineConfig(
                 n_knots=10,
                 lags=[-3, -2, -1, 0, 1, 2, 3],
                 reg_weight=1e-4,
@@ -82,12 +82,12 @@ def tsgam_estimator_with_ar(notebook_data):
             )
         ],
         ar_config=ar_config,
-        solver_config=TsgamSolverConfig(solver='CLARABEL', verbose=False),
+        solver_config=SolverConfig(solver='CLARABEL', verbose=False),
         random_state=None,
         debug=True
     )
 
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
     estimator.fit(X, y)
 
     return estimator
@@ -250,13 +250,13 @@ def test_sample_method_without_ar():
     X = pd.DataFrame({'temp': df_subset["Dry_Bulb"].values}, index=df_subset.index)
 
     # No AR config
-    config = TsgamEstimatorConfig(
-        multi_periodic_config=TsgamMultiPeriodicConfig(
+    config = EstimatorConfig(
+        multi_periodic_config=MultiPeriodicConfig(
             num_harmonics=[6, 4, 3],
             periods=[365.2425 * 24, 7 * 24, 24]
         ),
         exog_config=[
-            TsgamSplineConfig(
+            SplineConfig(
                 n_knots=10,
                 lags=[-3, -2, -1, 0, 1, 2, 3],
                 reg_weight=1e-4,
@@ -264,12 +264,12 @@ def test_sample_method_without_ar():
             )
         ],
         ar_config=None,  # No AR model
-        solver_config=TsgamSolverConfig(solver='CLARABEL', verbose=False),
+        solver_config=SolverConfig(solver='CLARABEL', verbose=False),
         random_state=None,
         debug=False
     )
 
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
     estimator.fit(X, y)
 
     # Should still work (adds small noise)

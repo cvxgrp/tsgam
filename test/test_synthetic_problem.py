@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal, assert_series_equal
 
-from tsgam_estimator import TsgamEstimator, TsgamEstimatorConfig, TsgamLinearConfig, TsgamSplineConfig, TrendType
+from tsgam import Estimator, EstimatorConfig, LinearConfig, SplineConfig, TrendType
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -518,10 +518,10 @@ def test_build_estimator_config_mixes_linear_and_spline_terms():
     assert estimator_config.multi_periodic_config.num_harmonics == [2, 1]
     assert estimator_config.multi_periodic_config.reg_weight == 1.0e-5
     assert estimator_config.exog_config is not None
-    assert isinstance(estimator_config.exog_config[0], TsgamLinearConfig)
+    assert isinstance(estimator_config.exog_config[0], LinearConfig)
     assert estimator_config.exog_config[0].lags == [0]
     assert estimator_config.exog_config[0].reg_weight == 2.0e-4
-    assert isinstance(estimator_config.exog_config[1], TsgamSplineConfig)
+    assert isinstance(estimator_config.exog_config[1], SplineConfig)
     assert estimator_config.exog_config[1].lags == [0]
     assert estimator_config.exog_config[1].n_knots == 7
     assert estimator_config.exog_config[1].reg_weight == 3.0e-4
@@ -706,7 +706,7 @@ def test_fitted_components_use_native_grid_for_gaps_and_lags():
     X = pd.DataFrame({"x": np.random.default_rng(7).normal(size=60)}, index=pd.date_range("2024", periods=60, freq="1h"))
     y = 2 + X.x.to_numpy()
     keep = np.arange(len(X)) != 20
-    model = TsgamEstimator(TsgamEstimatorConfig(None, [TsgamLinearConfig(lags=[-2, 0])])).fit(X.loc[keep], y[keep])
+    model = Estimator(EstimatorConfig(None, [LinearConfig(lags=[-2, 0])])).fit(X.loc[keep], y[keep])
     frame = fitted_component_frame(model, X.loc[keep])
     expected = model.decomposition_["values"]["exog_0"][keep].copy()
     supported = model.decomposition_["fit_mask"][keep]
@@ -726,7 +726,7 @@ def test_fitted_components_use_native_grid_for_gaps_and_lags():
 @pytest.mark.parametrize("minutes", [-15, 15, 60 * 60])
 def test_fitted_component_frame_rejects_nonmember_timestamps(minutes):
     X = pd.DataFrame({"x": np.arange(60.)}, index=pd.date_range("2024", periods=60, freq="1h", tz="UTC"))
-    model = TsgamEstimator(TsgamEstimatorConfig(None, [TsgamLinearConfig()])).fit(X, X.x.to_numpy())
+    model = Estimator(EstimatorConfig(None, [LinearConfig()])).fit(X, X.x.to_numpy())
     query = X.iloc[:1].copy()
     query.index += pd.Timedelta(minutes=minutes)
     with pytest.raises(ValueError, match="outside the fitted grid"):
@@ -738,7 +738,7 @@ def test_fitted_component_frame_reconstructs_predictions():
     config = _make_problem_config()
     problem = generate_synthetic_problem(config)
     estimator_config = build_estimator_config(config, solver_name="CLARABEL")
-    estimator = TsgamEstimator(config=estimator_config)
+    estimator = Estimator(config=estimator_config)
     estimator.fit(problem.X, problem.y.to_numpy())
 
     component_frame = fitted_component_frame(estimator, problem.X)
@@ -768,7 +768,7 @@ def test_component_fit_quality_rows_scores_known_truth_terms():
     problem = generate_synthetic_problem(config)
     split = split_problem_frames(problem)
     estimator_config = build_estimator_config(config, solver_name="CLARABEL")
-    estimator = TsgamEstimator(config=estimator_config)
+    estimator = Estimator(config=estimator_config)
     estimator.fit(split.X_train, split.y_train.to_numpy())
 
     train_components = fitted_component_frame(estimator, split.X_train)
@@ -801,7 +801,7 @@ def test_component_quality_uses_common_finite_support_with_lags():
     config = replace(config, regressors=tuple(replace(spec, lags=(-2, 0)) for spec in config.regressors))
     problem = generate_synthetic_problem(config)
     split = split_problem_frames(problem)
-    model = TsgamEstimator(build_estimator_config(config, solver_name="CLARABEL")).fit(split.X_train, split.y_train.to_numpy())
+    model = Estimator(build_estimator_config(config, solver_name="CLARABEL")).fit(split.X_train, split.y_train.to_numpy())
     frames = {"train": fitted_component_frame(model, split.X_train), "test": predicted_component_frame(model, split.X_test)}
     snapshots = {key: frame.copy() for key, frame in frames.items()}
     truth = problem.truth_components.copy()
@@ -913,7 +913,7 @@ def test_fourier_coefficient_frame_reports_truth_and_fitted_coefficients():
     )
     problem = generate_synthetic_problem(config)
     estimator_config = build_estimator_config(config, solver_name="CLARABEL")
-    estimator = TsgamEstimator(config=estimator_config)
+    estimator = Estimator(config=estimator_config)
     estimator.fit(problem.X, problem.y.to_numpy())
 
     frame = fourier_coefficient_frame(config, estimator)
@@ -1085,7 +1085,7 @@ def test_regressor_response_frame_reports_true_and_fitted_response_curves():
     problem = generate_synthetic_problem(config)
     split = split_problem_frames(problem)
     estimator_config = build_estimator_config(config, solver_name="CLARABEL")
-    estimator = TsgamEstimator(config=estimator_config)
+    estimator = Estimator(config=estimator_config)
     estimator.fit(split.X_train, split.y_train.to_numpy())
 
     frame = regressor_response_frame(estimator, problem, grid_size=15)

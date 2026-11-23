@@ -7,16 +7,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tsgam_estimator import (
-    TsgamArConfig,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamLinearConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
+from tsgam import (
+    ArConfig,
+    Estimator,
+    EstimatorConfig,
+    LinearConfig,
+    SolverConfig,
+    SplineConfig,
 )
 
-SOLVER = TsgamSolverConfig(solver="CLARABEL", verbose=False)
+SOLVER = SolverConfig(solver="CLARABEL", verbose=False)
 
 
 def _make_additive_plus_interaction_data(
@@ -61,15 +61,15 @@ def test_interaction_pairs_default_matches_explicit_none():
     base_kwargs = {
         "multi_periodic_config": None,
         "exog_config": [
-            TsgamLinearConfig(lags=[0]),
-            TsgamLinearConfig(lags=[0]),
+            LinearConfig(lags=[0]),
+            LinearConfig(lags=[0]),
         ],
         "solver_config": SOLVER,
     }
 
-    est_default = TsgamEstimator(config=TsgamEstimatorConfig(**base_kwargs))
-    est_explicit_none = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    est_default = Estimator(config=EstimatorConfig(**base_kwargs))
+    est_explicit_none = Estimator(
+        config=EstimatorConfig(
             **base_kwargs,
             interaction_pairs=None,
         )
@@ -92,14 +92,14 @@ def test_empty_interaction_pairs_are_noop_without_exog():
         "solver_config": SOLVER,
     }
 
-    est_none = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    est_none = Estimator(
+        config=EstimatorConfig(
             **base_kwargs,
             interaction_pairs=None,
         )
     )
-    est_empty = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    est_empty = Estimator(
+        config=EstimatorConfig(
             **base_kwargs,
             interaction_pairs=[],
         )
@@ -116,12 +116,12 @@ def test_empty_interaction_pairs_are_noop_without_exog():
 
 def test_interaction_pairs_require_zero_lag_on_both_terms():
     X, y = _make_additive_plus_interaction_data(n_samples=160)
-    est = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    est = Estimator(
+        config=EstimatorConfig(
             multi_periodic_config=None,
             exog_config=[
-                TsgamLinearConfig(lags=[-1, 1]),
-                TsgamLinearConfig(lags=[0]),
+                LinearConfig(lags=[-1, 1]),
+                LinearConfig(lags=[0]),
             ],
             interaction_pairs=[(0, 1)],
             solver_config=SOLVER,
@@ -135,8 +135,8 @@ def test_interaction_pairs_require_zero_lag_on_both_terms():
 @pytest.mark.parametrize("exog_config", [None, []], ids=["none", "empty"])
 def test_interaction_pairs_require_nonempty_exog_config(exog_config):
     X, y = _make_additive_plus_interaction_data(n_samples=120)
-    est = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    est = Estimator(
+        config=EstimatorConfig(
             multi_periodic_config=None,
             exog_config=exog_config,
             interaction_pairs=[(0, 1)],
@@ -150,12 +150,12 @@ def test_interaction_pairs_require_nonempty_exog_config(exog_config):
 
 def test_interaction_pairs_require_integer_indices():
     X, y = _make_additive_plus_interaction_data(n_samples=160)
-    est = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    est = Estimator(
+        config=EstimatorConfig(
             multi_periodic_config=None,
             exog_config=[
-                TsgamLinearConfig(lags=[0]),
-                TsgamLinearConfig(lags=[0]),
+                LinearConfig(lags=[0]),
+                LinearConfig(lags=[0]),
             ],
             interaction_pairs=[(0.9, 1)],
             solver_config=SOLVER,
@@ -177,12 +177,12 @@ def test_interaction_pairs_require_integer_indices():
 )
 def test_interaction_pairs_validate_pair_structure(interaction_pairs, message):
     X, y = _make_additive_plus_interaction_data(n_samples=160)
-    est = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    est = Estimator(
+        config=EstimatorConfig(
             multi_periodic_config=None,
             exog_config=[
-                TsgamLinearConfig(lags=[0]),
-                TsgamLinearConfig(lags=[0]),
+                LinearConfig(lags=[0]),
+                LinearConfig(lags=[0]),
             ],
             interaction_pairs=interaction_pairs,
             solver_config=SOLVER,
@@ -195,12 +195,12 @@ def test_interaction_pairs_validate_pair_structure(interaction_pairs, message):
 
 def test_linear_linear_interaction_uses_single_coefficient():
     X, y = _make_additive_plus_interaction_data(n_samples=180)
-    est = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    est = Estimator(
+        config=EstimatorConfig(
             multi_periodic_config=None,
             exog_config=[
-                TsgamLinearConfig(lags=[0]),
-                TsgamLinearConfig(lags=[0]),
+                LinearConfig(lags=[0]),
+                LinearConfig(lags=[0]),
             ],
             interaction_pairs=[(0, 1)],
             solver_config=SOLVER,
@@ -215,12 +215,12 @@ def test_linear_linear_interaction_uses_single_coefficient():
 
 def test_spline_linear_interaction_has_q_times_r_coefficients():
     X, y = _make_additive_plus_interaction_data(n_samples=180)
-    est = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    est = Estimator(
+        config=EstimatorConfig(
             multi_periodic_config=None,
             exog_config=[
-                TsgamSplineConfig(n_knots=5, lags=[0]),
-                TsgamLinearConfig(lags=[0]),
+                SplineConfig(n_knots=5, lags=[0]),
+                LinearConfig(lags=[0]),
             ],
             interaction_pairs=[(0, 1)],
             solver_config=SOLVER,
@@ -235,12 +235,12 @@ def test_spline_linear_interaction_has_q_times_r_coefficients():
 
 def test_interactions_use_only_current_index_when_main_effects_have_lags():
     X, y = _make_additive_plus_interaction_data(n_samples=220)
-    est = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    est = Estimator(
+        config=EstimatorConfig(
             multi_periodic_config=None,
             exog_config=[
-                TsgamLinearConfig(lags=[-1, 0, 1]),
-                TsgamLinearConfig(lags=[-1, 0, 1]),
+                LinearConfig(lags=[-1, 0, 1]),
+                LinearConfig(lags=[-1, 0, 1]),
             ],
             interaction_pairs=[(0, 1)],
             solver_config=SOLVER,
@@ -266,14 +266,14 @@ def test_interactions_improve_held_out_predictions():
     base_config = dict(
         multi_periodic_config=None,
         exog_config=[
-            TsgamLinearConfig(lags=[0]),
-            TsgamLinearConfig(lags=[0]),
+            LinearConfig(lags=[0]),
+            LinearConfig(lags=[0]),
         ],
         solver_config=SOLVER,
     )
-    additive_est = TsgamEstimator(config=TsgamEstimatorConfig(**base_config))
-    interaction_est = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    additive_est = Estimator(config=EstimatorConfig(**base_config))
+    interaction_est = Estimator(
+        config=EstimatorConfig(
             **base_config,
             interaction_pairs=[(0, 1)],
         )
@@ -290,15 +290,15 @@ def test_interactions_improve_held_out_predictions():
 
 def test_interactions_work_with_ar_baseline_and_sampling():
     X, y = _make_additive_plus_interaction_data(n_samples=220)
-    est = TsgamEstimator(
-        config=TsgamEstimatorConfig(
+    est = Estimator(
+        config=EstimatorConfig(
             multi_periodic_config=None,
             exog_config=[
-                TsgamLinearConfig(lags=[0]),
-                TsgamLinearConfig(lags=[0]),
+                LinearConfig(lags=[0]),
+                LinearConfig(lags=[0]),
             ],
             interaction_pairs=[(0, 1)],
-            ar_config=TsgamArConfig(lags=[1]),
+            ar_config=ArConfig(lags=[1]),
             solver_config=SOLVER,
             random_state=np.random.RandomState(0),
         )

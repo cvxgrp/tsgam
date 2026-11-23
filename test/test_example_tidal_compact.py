@@ -682,8 +682,8 @@ def test_build_regressor_response_inputs_aligns_selected_lag():
 
     assert callable(builder)
 
-    estimator = tidal_compact.TsgamEstimator(
-        tidal_compact.TsgamEstimatorConfig(
+    estimator = tidal_compact.Estimator(
+        tidal_compact.EstimatorConfig(
             multi_periodic_config=None,
             exog_config=None,
         )
@@ -699,7 +699,7 @@ def test_build_regressor_response_inputs_aligns_selected_lag():
         ),
         "active_regs": ["pressure"],
         "model": estimator,
-        "exog_config": [tidal_compact.TsgamLinearConfig(lags=[-1, 0], reg_weight=1e-5)],
+        "exog_config": [tidal_compact.LinearConfig(lags=[-1, 0], reg_weight=1e-5)],
     }
 
     response_inputs = builder(fit_result, "pressure", lag=0)
@@ -734,8 +734,8 @@ def test_run_tidal_model_passes_active_interaction_pairs_to_estimator(monkeypatc
         x_train_pred = df_train[["pressure", "wind_u"]].copy()
         x_test_pred = df_test[["pressure", "wind_u"]].copy()
         exog_config = [
-            tidal_compact.TsgamLinearConfig(lags=[0], reg_weight=1e-5),
-            tidal_compact.TsgamLinearConfig(lags=[0], reg_weight=1e-5),
+            tidal_compact.LinearConfig(lags=[0], reg_weight=1e-5),
+            tidal_compact.LinearConfig(lags=[0], reg_weight=1e-5),
         ]
         return x_train_fit, x_train_pred, x_test_pred, ["pressure", "wind_u"], exog_config
 
@@ -752,7 +752,7 @@ def test_run_tidal_model_passes_active_interaction_pairs_to_estimator(monkeypatc
 
     monkeypatch.setattr(tidal_compact, "build_periodic_config", fake_build_periodic_config)
     monkeypatch.setattr(tidal_compact, "build_exog_design_matrices", fake_build_exog_design_matrices)
-    monkeypatch.setattr(tidal_compact, "TsgamEstimator", FakeEstimator)
+    monkeypatch.setattr(tidal_compact, "Estimator", FakeEstimator)
     monkeypatch.setattr(tidal_compact, "fitted_components", lambda model, index: pd.DataFrame({"reconstruction": np.zeros(len(index))}, index=index))
 
     parameters = inspect.signature(tidal_compact.run_tidal_model).parameters

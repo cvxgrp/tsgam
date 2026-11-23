@@ -32,15 +32,15 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import sys
 
-# Add src directory to path to import tsgam_estimator
+# Add src directory to path to import tsgam
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
-from tsgam_estimator import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamOutlierConfig,
-    TsgamSolverConfig,
+from tsgam import (
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    OutlierConfig,
+    SolverConfig,
     PERIOD_HOURLY_DAILY,
     PERIOD_HOURLY_WEEKLY,
 )
@@ -144,30 +144,30 @@ def fit_model_with_outlier_detector(X, y, reg_weight=1.0):
 
     Returns
     -------
-    estimator : TsgamEstimator
+    estimator : Estimator
         Fitted estimator.
     """
     # Multi-periodic configuration for seasonal patterns
-    multi_periodic_config = TsgamMultiPeriodicConfig(
+    multi_periodic_config = MultiPeriodicConfig(
         num_harmonics=[4, 3],
         periods=[PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
         reg_weight=1e-4
     )
 
     # Outlier detector configuration
-    outlier_config = TsgamOutlierConfig(
+    outlier_config = OutlierConfig(
         reg_weight=reg_weight,
         period_hours=24.0  # Daily outliers
     )
 
     # Solver configuration
-    solver_config = TsgamSolverConfig(
+    solver_config = SolverConfig(
         solver='CLARABEL',
         verbose=False
     )
 
     # Create main config
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=multi_periodic_config,
         exog_config=None,
         ar_config=None,
@@ -179,7 +179,7 @@ def fit_model_with_outlier_detector(X, y, reg_weight=1.0):
     )
 
     # Create and fit estimator
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
     estimator.fit(X, y)
 
     return estimator
@@ -198,24 +198,24 @@ def fit_model_without_outlier_detector(X, y):
 
     Returns
     -------
-    estimator : TsgamEstimator
+    estimator : Estimator
         Fitted estimator.
     """
     # Multi-periodic configuration for seasonal patterns
-    multi_periodic_config = TsgamMultiPeriodicConfig(
+    multi_periodic_config = MultiPeriodicConfig(
         num_harmonics=[4, 3],
         periods=[PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
         reg_weight=1e-4
     )
 
     # Solver configuration
-    solver_config = TsgamSolverConfig(
+    solver_config = SolverConfig(
         solver='CLARABEL',
         verbose=False
     )
 
     # Create main config (no outlier detector)
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=multi_periodic_config,
         exog_config=None,
         ar_config=None,
@@ -227,7 +227,7 @@ def fit_model_without_outlier_detector(X, y):
     )
 
     # Create and fit estimator
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
     estimator.fit(X, y)
 
     return estimator
@@ -253,9 +253,9 @@ def plot_results(
         Original scale target values.
     true_outlier_values : ndarray
         True outlier values per day.
-    estimator_with_outlier : TsgamEstimator
+    estimator_with_outlier : Estimator
         Fitted estimator with outlier detector.
-    estimator_without_outlier : TsgamEstimator
+    estimator_without_outlier : Estimator
         Fitted estimator without outlier detector.
     outlier_days : list of int
         List of outlier day indices.

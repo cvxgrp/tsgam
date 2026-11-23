@@ -48,20 +48,20 @@ def _():
     import zipfile
     from signaldecomp.spline import make_spline_basis
 
-    # Add src directory to path to import tsgam_estimator
+    # Add src directory to path to import tsgam
     _project_root = Path(__file__).parent.parent
     _src_dir = _project_root / 'src'
     if str(_src_dir) not in sys.path:
         sys.path.insert(0, str(_src_dir))
 
-    from tsgam_estimator import (
-        TsgamEstimator,
-        TsgamEstimatorConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSplineConfig,
-        TsgamArConfig,
-        TsgamOutlierConfig,
-        TsgamSolverConfig,
+    from tsgam import (
+        Estimator,
+        EstimatorConfig,
+        MultiPeriodicConfig,
+        SplineConfig,
+        ArConfig,
+        OutlierConfig,
+        SolverConfig,
         PERIOD_HOURLY_DAILY,
         PERIOD_HOURLY_WEEKLY,
         PERIOD_HOURLY_YEARLY
@@ -71,13 +71,13 @@ def _():
         PERIOD_HOURLY_WEEKLY,
         PERIOD_HOURLY_YEARLY,
         Path,
-        TsgamArConfig,
-        TsgamEstimator,
-        TsgamEstimatorConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamOutlierConfig,
-        TsgamSolverConfig,
-        TsgamSplineConfig,
+        ArConfig,
+        Estimator,
+        EstimatorConfig,
+        MultiPeriodicConfig,
+        OutlierConfig,
+        SolverConfig,
+        SplineConfig,
         make_spline_basis,
         mo,
         np,
@@ -539,13 +539,13 @@ def _(
     PERIOD_HOURLY_DAILY,
     PERIOD_HOURLY_WEEKLY,
     PERIOD_HOURLY_YEARLY,
-    TsgamArConfig,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamOutlierConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
+    ArConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    OutlierConfig,
+    SolverConfig,
+    SplineConfig,
     X_train,
     debug,
     fit_model,
@@ -582,7 +582,7 @@ def _(
 
     print(f"Multi-periodic config: {_num_harmonics_list} harmonics for periods {_periods_list}")
 
-    multi_periodic_config = TsgamMultiPeriodicConfig(
+    multi_periodic_config = MultiPeriodicConfig(
         num_harmonics=_num_harmonics_list,
         periods=_periods_list,
         reg_weight=6e-5
@@ -601,31 +601,31 @@ def _(
 
     # Define configurations for each variable (in order they appear in X_train/X_test)
     var_configs = {
-        'temperature': TsgamSplineConfig(
+        'temperature': SplineConfig(
             n_knots=8,
             lags=[-2, -1, 0],  # Current and previous 1-2 hours
             reg_weight=6e-5,
             diff_reg_weight=0.5
         ),
-        'dewpoint': TsgamSplineConfig(
+        'dewpoint': SplineConfig(
             n_knots=10,
             lags=[-1, 0],  # Current and previous hour
             reg_weight=6e-5,
             diff_reg_weight=0.5
         ),
-        'wind_speed': TsgamSplineConfig(
+        'wind_speed': SplineConfig(
             n_knots=8,
             lags=[-1, 0],  # Current and previous hour
             reg_weight=6e-5,
             diff_reg_weight=0.5
         ),
-        'pressure': TsgamSplineConfig(
+        'pressure': SplineConfig(
             n_knots=8,
             lags=[0],  # Current only
             reg_weight=6e-5,
             diff_reg_weight=0.5
         ),
-        'rain_hours': TsgamSplineConfig(
+        'rain_hours': SplineConfig(
             n_knots=6,
             lags=[0],  # Current only
             reg_weight=6e-5,
@@ -643,7 +643,7 @@ def _(
                 exog_config.append(var_configs[var_name])
             else:
                 # Fallback configuration if variable not in predefined configs
-                exog_config.append(TsgamSplineConfig(
+                exog_config.append(SplineConfig(
                     n_knots=8,
                     lags=[0],
                     reg_weight=6e-5,
@@ -657,7 +657,7 @@ def _(
     # AR configuration
     ar_config = None
     if use_ar.value:
-        ar_config = TsgamArConfig(
+        ar_config = ArConfig(
             lags=[1, 2, 3, 4],
             l1_constraint=0.97
         )
@@ -666,7 +666,7 @@ def _(
 
     # Outlier detector configuration
     if use_outlier.value:
-        outlier_config = TsgamOutlierConfig(
+        outlier_config = OutlierConfig(
             reg_weight=outlier_reg_weight.value,
             period_hours=24.0  # Daily outliers
         )
@@ -674,13 +674,13 @@ def _(
         outlier_config = None
 
     # Solver configuration
-    solver_config = TsgamSolverConfig(
+    solver_config = SolverConfig(
         solver=solver_select.value,
         verbose=verbose.value
     )
 
     # Create main config
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         multi_periodic_config=multi_periodic_config,
         exog_config=exog_config,
         ar_config=ar_config,
@@ -692,7 +692,7 @@ def _(
 
     # Create and fit estimator
     print("Creating and fitting TSGAM estimator...")
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
 
     print("Fitting model (this may take a few minutes)...")
     estimator.fit(X_train, y_train_log)
@@ -732,11 +732,11 @@ def _(
     PERIOD_HOURLY_DAILY,
     PERIOD_HOURLY_WEEKLY,
     PERIOD_HOURLY_YEARLY,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
+    SplineConfig,
     X_test,
     X_train,
     mo,
@@ -762,7 +762,7 @@ def _(
     # Multi-periodic config
     _periods_list = [PERIOD_HOURLY_YEARLY, float(30*24.0), float(PERIOD_HOURLY_WEEKLY), float(PERIOD_HOURLY_DAILY)]
     _num_harmonics_list = [4, 4, 8, 4]
-    _multi_periodic_config = TsgamMultiPeriodicConfig(
+    _multi_periodic_config = MultiPeriodicConfig(
         num_harmonics=_num_harmonics_list,
         periods=_periods_list,
         reg_weight=6e-5
@@ -772,11 +772,11 @@ def _(
     # Note: n_knots=10+ fails with CLARABEL for temperature when used alone or with dewpoint/wind_speed
     # Testing showed: n_knots=8 with lags=[-2,-1,0] works reliably for all combinations
     _var_configs = {
-        'temperature': TsgamSplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),  # Using n_knots=8 to avoid solver failure
-        'dewpoint': TsgamSplineConfig(n_knots=10, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-        'wind_speed': TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
-        'pressure': TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),
-        'rain_hours': TsgamSplineConfig(n_knots=6, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),
+        'temperature': SplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),  # Using n_knots=8 to avoid solver failure
+        'dewpoint': SplineConfig(n_knots=10, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+        'wind_speed': SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),
+        'pressure': SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),
+        'rain_hours': SplineConfig(n_knots=6, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),
     }
 
     # Get available variables from X_train
@@ -823,15 +823,15 @@ def _(
 
         # Always use CLARABEL (no MOSEK license available)
         try:
-            _config = TsgamEstimatorConfig(
+            _config = EstimatorConfig(
                 multi_periodic_config=_multi_periodic_config,
                 exog_config=_exog_config,
                 ar_config=None,
-                solver_config=TsgamSolverConfig(solver='CLARABEL', verbose=False),
+                solver_config=SolverConfig(solver='CLARABEL', verbose=False),
                 random_state=42,
                 debug=False
             )
-            _estimator = TsgamEstimator(config=_config)
+            _estimator = Estimator(config=_config)
             _estimator.fit(_X_train, _y_train_log)
             _pred_log = _estimator.predict(_X_test)
             return _pred_log, None

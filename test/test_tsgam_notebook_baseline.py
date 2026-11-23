@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Test that TsgamEstimator produces the same optimal value and coefficients as the notebook.
+Test that Estimator produces the same optimal value and coefficients as the notebook.
 
 This test loads the actual notebook data and compares:
 1. Optimal value from optimization problem
@@ -14,12 +14,12 @@ import pytest
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from tsgam_estimator import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSplineConfig,
-    TsgamSolverConfig,
+from tsgam import (
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SplineConfig,
+    SolverConfig,
 )
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / 'examples' / 'data' / 'iso'
@@ -55,18 +55,18 @@ def notebook_baseline_coefficients():
 
 @pytest.fixture(scope="module")
 def tsgam_estimator_baseline(notebook_data):
-    """Fit TsgamEstimator with baseline configuration matching notebook."""
+    """Fit Estimator with baseline configuration matching notebook."""
     df_subset = notebook_data.loc["2020":"2021"]
     y = np.log(df_subset["RT_Demand"]).values
     X = pd.DataFrame({'temp': df_subset["Dry_Bulb"].values}, index=df_subset.index)
 
-    config = TsgamEstimatorConfig(
-        multi_periodic_config=TsgamMultiPeriodicConfig(
+    config = EstimatorConfig(
+        multi_periodic_config=MultiPeriodicConfig(
             num_harmonics=[6, 4, 3],
             periods=[365.2425 * 24, 7 * 24, 24]
         ),
         exog_config=[
-            TsgamSplineConfig(
+            SplineConfig(
                 n_knots=10,
                 lags=[-3, -2, -1, 0, 1, 2, 3],
                 reg_weight=1e-4,
@@ -74,12 +74,12 @@ def tsgam_estimator_baseline(notebook_data):
             )
         ],
         ar_config=None,
-        solver_config=TsgamSolverConfig(solver='CLARABEL', verbose=False),
+        solver_config=SolverConfig(solver='CLARABEL', verbose=False),
         random_state=None,
         debug=False
     )
 
-    estimator = TsgamEstimator(config=config)
+    estimator = Estimator(config=config)
     estimator.fit(X, y)
 
     return estimator, X, y

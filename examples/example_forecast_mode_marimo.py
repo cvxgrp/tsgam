@@ -29,7 +29,7 @@ app = marimo.App(width="full")
 def _(mo):
     intro = (
         "# Forecast Mode Walkthrough\n\n"
-        "This notebook walks through the new `TsgamForecastEstimator` using a "
+        "This notebook walks through the new `ForecastEstimator` using a "
         "small demand-forecasting problem. We generate hourly demand from a "
         "known weather signal, turn it into horizon-specific supervised "
         "forecast rows, and compare independent versus coupled forecast mode. "
@@ -54,24 +54,24 @@ def _():
     if str(src_dir) not in sys.path:
         sys.path.insert(0, str(src_dir))
 
-    from tsgam_estimator import (
-        TsgamEstimatorConfig,
-        TsgamForecastConfig,
-        TsgamForecastCouplingConfig,
-        TsgamForecastEstimator,
-        TsgamLinearConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
+    from tsgam import (
+        EstimatorConfig,
+        ForecastConfig,
+        ForecastCouplingConfig,
+        ForecastEstimator,
+        LinearConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
     )
 
     return (
-        TsgamEstimatorConfig,
-        TsgamForecastConfig,
-        TsgamForecastCouplingConfig,
-        TsgamForecastEstimator,
-        TsgamLinearConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
+        EstimatorConfig,
+        ForecastConfig,
+        ForecastCouplingConfig,
+        ForecastEstimator,
+        LinearConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
         alt,
         mo,
         np,
@@ -181,13 +181,13 @@ def _(horizon_count, mo):
 
 @app.cell
 def _(
-    TsgamEstimatorConfig,
-    TsgamForecastConfig,
-    TsgamForecastCouplingConfig,
-    TsgamForecastEstimator,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
+    EstimatorConfig,
+    ForecastConfig,
+    ForecastCouplingConfig,
+    ForecastEstimator,
+    LinearConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
     np,
     pd,
 ):
@@ -238,15 +238,15 @@ def _(
         )
         return frame, coefficients
 
-    def base_forecast_config() -> TsgamEstimatorConfig:
-        return TsgamEstimatorConfig(
-            multi_periodic_config=TsgamMultiPeriodicConfig(
+    def base_forecast_config() -> EstimatorConfig:
+        return EstimatorConfig(
+            multi_periodic_config=MultiPeriodicConfig(
                 num_harmonics=[2],
                 periods=[24],
                 reg_weight=1.0e-5,
             ),
-            exog_config=[TsgamLinearConfig(lags=[0], reg_weight=1.0e-7)],
-            solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+            exog_config=[LinearConfig(lags=[0], reg_weight=1.0e-7)],
+            solver_config=SolverConfig(solver="CLARABEL", verbose=False),
         )
 
     def fit_forecast_models(
@@ -261,19 +261,19 @@ def _(
         x_train = frame[["weather_signal"]].iloc[:train_stop]
         y_train = frame["demand"].to_numpy()[:train_stop]
         x_eval = frame[["weather_signal"]].iloc[train_stop:-horizon]
-        independent = TsgamForecastEstimator(
-            TsgamForecastConfig(
+        independent = ForecastEstimator(
+            ForecastConfig(
                 horizon=horizon,
                 base_config=base_forecast_config(),
                 mode="independent",
             )
         ).fit(x_train, y_train)
-        coupled = TsgamForecastEstimator(
-            TsgamForecastConfig(
+        coupled = ForecastEstimator(
+            ForecastConfig(
                 horizon=horizon,
                 base_config=base_forecast_config(),
                 mode="coupled",
-                coupling_config=TsgamForecastCouplingConfig(
+                coupling_config=ForecastCouplingConfig(
                     roughness_weight=roughness
                 ),
             )
@@ -591,7 +591,7 @@ def _(
             [
                 {
                     "stage": "base regression config",
-                    "what forecast mode does": "reuse a normal TsgamEstimatorConfig with daily Fourier terms and weather_signal lag=0",
+                    "what forecast mode does": "reuse a normal EstimatorConfig with daily Fourier terms and weather_signal lag=0",
                     "result": "one regression recipe shared by every horizon",
                 },
                 {
@@ -601,7 +601,7 @@ def _(
                 },
                 {
                     "stage": "independent mode",
-                    "what forecast mode does": f"fit {horizon + 1} separate TsgamEstimator models",
+                    "what forecast mode does": f"fit {horizon + 1} separate Estimator models",
                     "result": f"{horizon + 1} child estimators for h=0 through h={horizon}",
                 },
                 {

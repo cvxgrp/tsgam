@@ -45,13 +45,13 @@ from common_cli import (
     write_ablation_report,
 )
 
-from tsgam_estimator import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSplineConfig,
-    TsgamSolverConfig,
-    TsgamTrendConfig,
+from tsgam import (
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SplineConfig,
+    SolverConfig,
+    TrendConfig,
     TrendType,
 )
 
@@ -121,7 +121,7 @@ def _fit_single_pv(cfg: dict) -> dict:
     """Fit one PV trend ablation config. Top-level for ThreadPoolExecutor."""
     name = cfg['name']
     try:
-        est = TsgamEstimator(config=cfg['estimator_config'])
+        est = Estimator(config=cfg['estimator_config'])
         est.fit(cfg['X_train'], cfg['y_train'])
         pred_test_log = est.predict(cfg['X_test'])
         pred_train_log = est.predict(cfg['X_train'])
@@ -155,14 +155,14 @@ def _build_pv_configs(
 
     period_yearly = 365.2425 * 24.0
     period_daily = 24.0
-    multi_periodic = TsgamMultiPeriodicConfig(
+    multi_periodic = MultiPeriodicConfig(
         num_harmonics=[6, 10],
         periods=[period_yearly, period_daily],
         reg_weight=1e-2,
     )
     exog_config = [
-        TsgamSplineConfig(n_knots=10, lags=[0], reg_weight=1e-4),
-        TsgamSplineConfig(n_knots=10, lags=[0], reg_weight=1e-4),
+        SplineConfig(n_knots=10, lags=[0], reg_weight=1e-4),
+        SplineConfig(n_knots=10, lags=[0], reg_weight=1e-4),
     ]
 
     shared = dict(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, y_max=y_max)
@@ -175,18 +175,18 @@ def _build_pv_configs(
     for trend_name in ('none', 'linear', 'nonlinear_decreasing', 'nonlinear_increasing'):
         trend_config = None
         if trend_name != 'none':
-            trend_config = TsgamTrendConfig(
+            trend_config = TrendConfig(
                 trend_type=trend_type_map[trend_name],
                 grouping=24.0,
                 reg_weight=10.0,
             )
         configs.append({
             'name': f'Trend: {trend_name}',
-            'estimator_config': TsgamEstimatorConfig(
+            'estimator_config': EstimatorConfig(
                 multi_periodic_config=multi_periodic,
                 exog_config=exog_config,
                 trend_config=trend_config,
-                solver_config=TsgamSolverConfig(solver='CLARABEL', verbose=False),
+                solver_config=SolverConfig(solver='CLARABEL', verbose=False),
             ),
             **shared,
         })

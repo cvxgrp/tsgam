@@ -4,19 +4,19 @@ import pandas as pd
 import pytest
 from signaldecomp.spline import make_spline_basis
 
-from tsgam_estimator import (
+from tsgam import (
     TrendType,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamForecastConfig,
-    TsgamForecastCouplingConfig,
-    TsgamForecastEstimator,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamOutlierConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
-    TsgamTrendConfig,
+    Estimator,
+    EstimatorConfig,
+    ForecastConfig,
+    ForecastCouplingConfig,
+    ForecastEstimator,
+    LinearConfig,
+    MultiPeriodicConfig,
+    OutlierConfig,
+    SolverConfig,
+    SplineConfig,
+    TrendConfig,
 )
 
 
@@ -28,14 +28,14 @@ def _data_and_config(lags):
         columns=["x", "z"],
     )
     y = 2 + X.x.to_numpy() ** 2 + X.z.to_numpy() + X.prod(axis=1).to_numpy()
-    config = TsgamEstimatorConfig(
+    config = EstimatorConfig(
         exog_config=[
-            TsgamSplineConfig(knots=np.linspace(-1, 1, 5), lags=lags),
-            TsgamLinearConfig(lags=lags),
+            SplineConfig(knots=np.linspace(-1, 1, 5), lags=lags),
+            LinearConfig(lags=lags),
         ],
         interaction_pairs=[(0, 1)],
-        multi_periodic_config=TsgamMultiPeriodicConfig(periods=[24], num_harmonics=[2]),
-        solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+        multi_periodic_config=MultiPeriodicConfig(periods=[24], num_harmonics=[2]),
+        solver_config=SolverConfig(solver="CLARABEL", verbose=False),
     )
     return X, y, config
 
@@ -43,8 +43,8 @@ def _data_and_config(lags):
 @pytest.mark.parametrize("include_offset", [False, True])
 def test_legacy_spline_helper_delegates_to_signaldecomp(include_offset):
     X, y, config = _data_and_config([0])
-    model = TsgamEstimator(config).fit(X, y)
-    assert TsgamEstimator._make_H is make_spline_basis
+    model = Estimator(config).fit(X, y)
+    assert Estimator._make_H is make_spline_basis
     basis = model._make_H(X.x.to_numpy(), model.exog_knots_[0], include_offset=include_offset)
     assert basis.shape == (len(X), 4 + include_offset)
     if not include_offset:
@@ -55,9 +55,9 @@ def test_legacy_spline_helper_delegates_to_signaldecomp(include_offset):
 @pytest.mark.parametrize("lags", [[0], [-1, 0]])
 def test_ordinary_legacy_keys_shapes_and_native_aliases(lags):
     X, y, config = _data_and_config(lags)
-    config.trend_config = TsgamTrendConfig(trend_type=TrendType.LINEAR, grouping=12)
-    config.outlier_config = TsgamOutlierConfig(period_hours=12, reg_weight=0.1)
-    model = TsgamEstimator(config).fit(X, y)
+    config.trend_config = TrendConfig(trend_type=TrendType.LINEAR, grouping=12)
+    config.outlier_config = OutlierConfig(period_hours=12, reg_weight=0.1)
+    model = Estimator(config).fit(X, y)
     old = model.variables_
     native = model.decomposition_["values"]
 
@@ -94,9 +94,9 @@ def test_ordinary_legacy_keys_shapes_and_native_aliases(lags):
 
 def test_ordinary_refit_replaces_legacy_views_and_aliases():
     X, y, config = _data_and_config([0])
-    model = TsgamEstimator(config).fit(X, y)
+    model = Estimator(config).fit(X, y)
     previous = model.output_
-    model.config = TsgamEstimatorConfig(exog_config=None, multi_periodic_config=None)
+    model.config = EstimatorConfig(exog_config=None, multi_periodic_config=None)
     model.fit(X, y + 1)
     assert model.output_ is model.decomposition_
     assert model.output_ is not previous
@@ -107,9 +107,9 @@ def test_ordinary_refit_replaces_legacy_views_and_aliases():
 @pytest.mark.parametrize("include_nowcast", [False, True])
 def test_coupled_legacy_horizon_layout_and_predictions(include_nowcast):
     X, y, config = _data_and_config([-1, 0])
-    model = TsgamForecastEstimator(TsgamForecastConfig(
+    model = ForecastEstimator(ForecastConfig(
         horizon=2, base_config=config, mode="coupled", include_nowcast=include_nowcast,
-        coupling_config=TsgamForecastCouplingConfig(roughness_weight=0.1),
+        coupling_config=ForecastCouplingConfig(roughness_weight=0.1),
     )).fit(X, y)
     old = model.variables_
     count = len(model.horizons_)
@@ -136,10 +136,10 @@ def test_coupled_legacy_horizon_layout_and_predictions(include_nowcast):
 
 def test_independent_children_support_legacy_access_after_switching_modes():
     X, y, config = _data_and_config([0])
-    model = TsgamForecastEstimator(TsgamForecastConfig(
+    model = ForecastEstimator(ForecastConfig(
         horizon=1, base_config=config, mode="coupled",
     )).fit(X, y)
-    model.config = TsgamForecastConfig(horizon=1, base_config=config)
+    model.config = ForecastConfig(horizon=1, base_config=config)
     model.fit(X, y)
     assert not hasattr(model, "variables_")
     assert not hasattr(model, "horizon_values_")

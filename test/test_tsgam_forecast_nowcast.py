@@ -7,13 +7,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tsgam_estimator import (
-    TsgamEstimatorConfig,
-    TsgamForecastConfig,
-    TsgamForecastEstimator,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
+from tsgam import (
+    EstimatorConfig,
+    ForecastConfig,
+    ForecastEstimator,
+    LinearConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
 )
 
 _N_SAMPLES = 216
@@ -40,21 +40,21 @@ def _make_deterministic_problem() -> tuple[pd.DataFrame, pd.Series]:
     return X, y
 
 
-def _base_config() -> TsgamEstimatorConfig:
-    return TsgamEstimatorConfig(
-        multi_periodic_config=TsgamMultiPeriodicConfig(
+def _base_config() -> EstimatorConfig:
+    return EstimatorConfig(
+        multi_periodic_config=MultiPeriodicConfig(
             num_harmonics=[2],
             periods=[24],
             reg_weight=1.0e-10,
         ),
         exog_config=[
-            TsgamLinearConfig(
+            LinearConfig(
                 lags=[-1, 0],
                 reg_weight=1.0e-10,
                 diff_reg_weight=0.0,
             )
         ],
-        solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+        solver_config=SolverConfig(solver="CLARABEL", verbose=False),
     )
 
 
@@ -69,8 +69,8 @@ def nowcast_evaluation() -> tuple[
     X_train = X.iloc[:_TRAIN_SAMPLES]
     y_train = y.iloc[:_TRAIN_SAMPLES].to_numpy()
 
-    forecast_model = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    forecast_model = ForecastEstimator(
+        ForecastConfig(
             horizon=_HORIZON,
             base_config=_base_config(),
             mode="independent",

@@ -12,19 +12,10 @@ import pytest
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
-from tsgam_estimator import (  # noqa: E402
+from tsgam import (  # noqa: E402
     forecast_to_long_dataframe,
     plot_forecast_horizon,
     plot_forecast_origin,
-)
-from tsgam_estimator.tsgam_estimator import (  # noqa: E402
-    forecast_to_long_dataframe as shim_forecast_to_long_dataframe,
-)
-from tsgam_estimator.tsgam_estimator import (  # noqa: E402
-    plot_forecast_horizon as shim_plot_forecast_horizon,
-)
-from tsgam_estimator.tsgam_estimator import (  # noqa: E402
-    plot_forecast_origin as shim_plot_forecast_origin,
 )
 
 
@@ -208,9 +199,3 @@ def test_forecast_plotting_rejects_invalid_prediction_shapes():
     noncontiguous = predictions.drop(columns="horizon_1")
     with pytest.raises(ValueError, match="contiguous from their first horizon"):
         forecast_to_long_dataframe(noncontiguous, actual)
-
-
-def test_public_forecast_plotting_imports_are_available():
-    assert shim_forecast_to_long_dataframe is forecast_to_long_dataframe
-    assert shim_plot_forecast_origin is plot_forecast_origin
-    assert shim_plot_forecast_horizon is plot_forecast_horizon

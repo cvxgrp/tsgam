@@ -34,7 +34,7 @@ from ._sklearn import SklearnConfigMixin, make_supported_scorer
 
 
 @dataclass
-class TsgamMultiPeriodicConfig(SklearnConfigMixin):
+class MultiPeriodicConfig(SklearnConfigMixin):
     """
     Configuration for multi-periodic Fourier basis functions.
 
@@ -60,7 +60,7 @@ class TsgamMultiPeriodicConfig(SklearnConfigMixin):
 
     Examples
     --------
-    >>> config = TsgamMultiPeriodicConfig(
+    >>> config = MultiPeriodicConfig(
     ...     num_harmonics=[6, 4, 3],
     ...     periods=[365.2425 * 24, 7 * 24, 24]  # yearly, weekly, daily
     ... )
@@ -91,7 +91,7 @@ class TsgamMultiPeriodicConfig(SklearnConfigMixin):
                 )
 
 @dataclass
-class TsgamSplineConfig(SklearnConfigMixin):
+class SplineConfig(SklearnConfigMixin):
     """
     Configuration for cubic spline basis functions for exogenous variables.
 
@@ -129,10 +129,10 @@ class TsgamSplineConfig(SklearnConfigMixin):
     Examples
     --------
     >>> # Auto-generate 10 knots
-    >>> config = TsgamSplineConfig(n_knots=10, lags=[-1, 0, 1])
+    >>> config = SplineConfig(n_knots=10, lags=[-1, 0, 1])
     >>>
     >>> # Use explicit knots
-    >>> config = TsgamSplineConfig(
+    >>> config = SplineConfig(
     ...     knots=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
     ...     lags=[0]
     ... )
@@ -151,17 +151,17 @@ class TsgamSplineConfig(SklearnConfigMixin):
         ):
             raise ValueError(
                 "Spline responses require at least three knots. For a linear "
-                "response (formerly n_knots=2), use TsgamLinearConfig with the "
+                "response (formerly n_knots=2), use LinearConfig with the "
                 "same lags and regularization weights."
             )
 
 @dataclass
-class TsgamLinearConfig(SklearnConfigMixin):
+class LinearConfig(SklearnConfigMixin):
     """
     Configuration for linear basis functions for exogenous variables.
 
     This config defines how an exogenous variable is modeled using simple linear
-    terms with optional lead/lag. Use this instead of TsgamSplineConfig when
+    terms with optional lead/lag. Use this instead of SplineConfig when
     you expect a linear relationship.
 
     Parameters
@@ -181,14 +181,14 @@ class TsgamLinearConfig(SklearnConfigMixin):
 
     Examples
     --------
-    >>> config = TsgamLinearConfig(lags=[-2, -1, 0, 1, 2])
+    >>> config = LinearConfig(lags=[-2, -1, 0, 1, 2])
     """
     lags: list[int] = field(default_factory=lambda:[0])
     reg_weight: float = 1.0e-4
     diff_reg_weight: float = 1.0
 
 @dataclass
-class TsgamArConfig(SklearnConfigMixin):
+class ArConfig(SklearnConfigMixin):
     """
     Configuration for autoregressive (AR) residual modeling.
 
@@ -208,10 +208,10 @@ class TsgamArConfig(SklearnConfigMixin):
     Examples
     --------
     >>> # AR(1) model
-    >>> config = TsgamArConfig(lags=[1], l1_constraint=0.95)
+    >>> config = ArConfig(lags=[1], l1_constraint=0.95)
     >>>
     >>> # AR(2) model with tighter constraint
-    >>> config = TsgamArConfig(lags=[1, 2], l1_constraint=0.8)
+    >>> config = ArConfig(lags=[1, 2], l1_constraint=0.8)
     """
     lags: list[int]
     l1_constraint: float = 0.95
@@ -227,7 +227,7 @@ class TrendType(StrEnum):
     NONLINEAR_INC = 'nonlinear_increasing'
 
 @dataclass
-class TsgamTrendConfig(SklearnConfigMixin):
+class TrendConfig(SklearnConfigMixin):
     """
     Configuration for trend term in the model.
 
@@ -256,13 +256,13 @@ class TsgamTrendConfig(SklearnConfigMixin):
     Examples
     --------
     >>> # Daily trend for hourly data (default)
-    >>> config = TsgamTrendConfig(trend_type='linear')
+    >>> config = TrendConfig(trend_type='linear')
     >>>
     >>> # Weekly trend for hourly data
-    >>> config = TsgamTrendConfig(trend_type='nonlinear', period_hours=168.0)
+    >>> config = TrendConfig(trend_type='nonlinear', period_hours=168.0)
     >>>
     >>> # No trend
-    >>> config = TsgamTrendConfig(trend_type='none')
+    >>> config = TrendConfig(trend_type='none')
     """
     trend_type: TrendType = TrendType.NONE
     grouping: float | None = None # todo: rename this to something better
@@ -272,7 +272,7 @@ class TsgamTrendConfig(SklearnConfigMixin):
         self.trend_type = TrendType(self.trend_type)
 
 @dataclass
-class TsgamOutlierConfig(SklearnConfigMixin):
+class OutlierConfig(SklearnConfigMixin):
     """
     Configuration for the outlier detector component.
 
@@ -345,21 +345,21 @@ class TsgamOutlierConfig(SklearnConfigMixin):
     Examples
     --------
     >>> # Daily outlier detector for hourly data (default, moderate sparsity)
-    >>> config = TsgamOutlierConfig(reg_weight=0.002)
+    >>> config = OutlierConfig(reg_weight=0.002)
     >>>
     >>> # Weekly outlier detector with higher sparsity (fewer outliers)
-    >>> config = TsgamOutlierConfig(reg_weight=0.01, period_hours=168.0)
+    >>> config = OutlierConfig(reg_weight=0.01, period_hours=168.0)
     >>>
     >>> # Daily outlier detector with lower sparsity (more outliers detected)
-    >>> config = TsgamOutlierConfig(reg_weight=0.001)
+    >>> config = OutlierConfig(reg_weight=0.001)
     >>>
     >>> # Very sparse detector (only extreme outliers)
-    >>> config = TsgamOutlierConfig(reg_weight=0.1)
+    >>> config = OutlierConfig(reg_weight=0.1)
     >>>
     >>> # Use in full estimator configuration
-    >>> from tsgam_estimator import TsgamEstimatorConfig
-    >>> estimator_config = TsgamEstimatorConfig(
-    ...     outlier_config=TsgamOutlierConfig(reg_weight=0.002)
+    >>> from tsgam import EstimatorConfig
+    >>> estimator_config = EstimatorConfig(
+    ...     outlier_config=OutlierConfig(reg_weight=0.002)
     ... )
     """
     reg_weight: float
@@ -368,7 +368,7 @@ class TsgamOutlierConfig(SklearnConfigMixin):
 type SolverOptionValue = int | float | bool | str | dict[str, SolverOptionValue]
 
 @dataclass
-class TsgamSolverConfig(SklearnConfigMixin):
+class SolverConfig(SklearnConfigMixin):
     """
     Configuration for the CVXPY solver used in optimization.
 
@@ -400,12 +400,12 @@ class TsgamSolverConfig(SklearnConfigMixin):
 
     Examples
     --------
-    >>> config = TsgamSolverConfig(solver='CLARABEL', verbose=False)
-    >>> config = TsgamSolverConfig(
+    >>> config = SolverConfig(solver='CLARABEL', verbose=False)
+    >>> config = SolverConfig(
     ...     solver='CLARABEL',
     ...     solver_opts={"max_iter": 200, "time_limit": 60.0},
     ... )
-    >>> config = TsgamSolverConfig(
+    >>> config = SolverConfig(
     ...     solver='MOSEK',
     ...     solver_opts={
     ...         "mosek_params": {"MSK_IPAR_INTPNT_MAX_ITERATIONS": 400}
@@ -431,19 +431,19 @@ class TsgamSolverConfig(SklearnConfigMixin):
         return opts
 
 @dataclass
-class TsgamEstimatorConfig(SklearnConfigMixin):
+class EstimatorConfig(SklearnConfigMixin):
     """
-    Main configuration for TsgamEstimator.
+    Main configuration for Estimator.
 
     This config combines all component configurations (Fourier, exogenous, AR)
     and solver settings into a single configuration object.
 
     Parameters
     ----------
-    multi_periodic_config : TsgamMultiPeriodicConfig or None
+    multi_periodic_config : MultiPeriodicConfig or None
         Configuration for multi-periodic Fourier basis functions. If None,
         no time-based seasonal patterns are modeled.
-    exog_config : list of TsgamSplineConfig or TsgamLinearConfig, or None
+    exog_config : list of SplineConfig or LinearConfig, or None
         List of configurations for exogenous variables. Each element corresponds
         to one exogenous variable in X. Order must match column order in X.
         If None, no exogenous variables are used.
@@ -453,13 +453,13 @@ class TsgamEstimatorConfig(SklearnConfigMixin):
         interactions are enabled, they use only each factor's current-index
         response block (``lag=0``), even if the corresponding main effect also
         includes additional lagged terms.
-    ar_config : TsgamArConfig or None, default=None
+    ar_config : ArConfig or None, default=None
         Configuration for AR residual modeling. If None, no AR model is fitted.
-    trend_config : TsgamTrendConfig or None, default=None
+    trend_config : TrendConfig or None, default=None
         Configuration for trend term. If None, no trend is fitted (equivalent to
         trend_type='none'). The trend is constant per period and can be linear,
         nonlinear (monotonic decreasing), or none.
-    outlier_config : TsgamOutlierConfig or None, default=None
+    outlier_config : OutlierConfig or None, default=None
         Configuration for outlier detector component. If None, no outlier detector
         is fitted.
 
@@ -469,9 +469,9 @@ class TsgamEstimatorConfig(SklearnConfigMixin):
         periods will have non-zero corrections. The corrections are constant per
         period and additive in log space (multiplicative in original scale).
 
-        See :class:`TsgamOutlierConfig` for detailed documentation and parameter
+        See :class:`OutlierConfig` for detailed documentation and parameter
         tuning guidelines.
-    solver_config : TsgamSolverConfig, default=TsgamSolverConfig()
+    solver_config : SolverConfig, default=SolverConfig()
         Solver configuration for CVXPY optimization.
     sort_index : bool, default=True
         If True, sort the data by its datetime index before fit/predict so that
@@ -487,25 +487,25 @@ class TsgamEstimatorConfig(SklearnConfigMixin):
 
     Examples
     --------
-    >>> multi_periodic = TsgamMultiPeriodicConfig(
+    >>> multi_periodic = MultiPeriodicConfig(
     ...     num_harmonics=[6, 4, 3],
     ...     periods=[365.2425 * 24, 7 * 24, 24]
     ... )
-    >>> exog = [TsgamSplineConfig(n_knots=10, lags=[-1, 0, 1])]
-    >>> ar = TsgamArConfig(lags=[1])
-    >>> config = TsgamEstimatorConfig(
+    >>> exog = [SplineConfig(n_knots=10, lags=[-1, 0, 1])]
+    >>> ar = ArConfig(lags=[1])
+    >>> config = EstimatorConfig(
     ...     multi_periodic_config=multi_periodic,
     ...     exog_config=exog,
     ...     ar_config=ar
     ... )
     """
-    multi_periodic_config: TsgamMultiPeriodicConfig | None
-    exog_config: list[TsgamSplineConfig | TsgamLinearConfig] | None
+    multi_periodic_config: MultiPeriodicConfig | None
+    exog_config: list[SplineConfig | LinearConfig] | None
     interaction_pairs: list[tuple[int, int]] | None = None # ensure this works with linear and splines
-    ar_config: TsgamArConfig | None = None
-    trend_config: TsgamTrendConfig | None = None
-    outlier_config: TsgamOutlierConfig | None = None
-    solver_config: TsgamSolverConfig = field(default_factory=TsgamSolverConfig)
+    ar_config: ArConfig | None = None
+    trend_config: TrendConfig | None = None
+    outlier_config: OutlierConfig | None = None
+    solver_config: SolverConfig = field(default_factory=SolverConfig)
     sort_index: bool = True
     random_state: RandomState | int | None = None
     debug: bool = False
@@ -565,7 +565,7 @@ def get_recommended_periods(X: pd.DataFrame, include_harmonics: bool = False) ->
     --------
     >>> import pandas as pd
     >>> import numpy as np
-    >>> from tsgam_estimator import get_recommended_periods
+    >>> from tsgam import get_recommended_periods
     >>>
     >>> # For 1-minute data: periods are multiples of 1-minute intervals
     >>> dates = pd.date_range('2020-01-01', periods=1000, freq='1min')
@@ -721,7 +721,7 @@ def get_recommended_periods(X: pd.DataFrame, include_harmonics: bool = False) ->
         return periods
 
 
-class TsgamEstimator(RegressorMixin, BaseEstimator):
+class Estimator(RegressorMixin, BaseEstimator):
     """
     Time Series Generalized Additive Model (TSGAM) Estimator.
 
@@ -740,7 +740,7 @@ class TsgamEstimator(RegressorMixin, BaseEstimator):
 
     Parameters
     ----------
-    config : TsgamEstimatorConfig
+    config : EstimatorConfig
         Configuration object containing all model settings.
 
     Attributes
@@ -781,26 +781,26 @@ class TsgamEstimator(RegressorMixin, BaseEstimator):
     --------
     >>> import pandas as pd
     >>> import numpy as np
-    >>> from tsgam_estimator import (
-    ...     TsgamEstimator, TsgamEstimatorConfig,
-    ...     TsgamMultiPeriodicConfig, TsgamSplineConfig, TsgamOutlierConfig
+    >>> from tsgam import (
+    ...     Estimator, EstimatorConfig,
+    ...     MultiPeriodicConfig, SplineConfig, OutlierConfig
     ... )
     >>>
     >>> # Create configuration with outlier detector
-    >>> multi_periodic = TsgamMultiPeriodicConfig(
+    >>> multi_periodic = MultiPeriodicConfig(
     ...     num_harmonics=[6, 4, 3],
     ...     periods=[365.2425 * 24, 7 * 24, 24]  # yearly, weekly, daily
     ... )
-    >>> exog_config = [TsgamSplineConfig(n_knots=10, lags=[-1, 0, 1])]
-    >>> outlier_config = TsgamOutlierConfig(reg_weight=0.002)  # Daily outliers
-    >>> config = TsgamEstimatorConfig(
+    >>> exog_config = [SplineConfig(n_knots=10, lags=[-1, 0, 1])]
+    >>> outlier_config = OutlierConfig(reg_weight=0.002)  # Daily outliers
+    >>> config = EstimatorConfig(
     ...     multi_periodic_config=multi_periodic,
     ...     exog_config=exog_config,
     ...     outlier_config=outlier_config
     ... )
     >>>
     >>> # Create estimator
-    >>> estimator = TsgamEstimator(config=config)
+    >>> estimator = Estimator(config=config)
     >>>
     >>> # Prepare data (X must be DataFrame with DatetimeIndex)
     >>> dates = pd.date_range('2020-01-01', periods=1000, freq='h')
@@ -819,13 +819,13 @@ class TsgamEstimator(RegressorMixin, BaseEstimator):
     ...                       index=pd.date_range('2021-01-01', periods=100, freq='h'))
     >>> predictions = estimator.predict(X_pred)
     """
-    def __init__(self, config: TsgamEstimatorConfig) -> None:
+    def __init__(self, config: EstimatorConfig) -> None:
         self.config = config
 
     # Historical response-plot helper; implementation belongs to SignalDecomp.
     _make_H = staticmethod(make_spline_basis)
 
-    def fit(self, X: pd.DataFrame, y: ndarray, sample_weight: ndarray | None = None) -> "TsgamEstimator":
+    def fit(self, X: pd.DataFrame, y: ndarray, sample_weight: ndarray | None = None) -> "Estimator":
         """
         Fit the TSGAM model to training data.
 
@@ -851,7 +851,7 @@ class TsgamEstimator(RegressorMixin, BaseEstimator):
 
         Returns
         -------
-        self : TsgamEstimator
+        self : Estimator
             Returns self for method chaining.
 
         Raises
@@ -867,7 +867,7 @@ class TsgamEstimator(RegressorMixin, BaseEstimator):
         >>> X = pd.DataFrame({'temp': np.random.randn(1000)}, index=dates)
         >>> y = np.log(np.random.rand(1000) * 100 + 50)
         >>> estimator.fit(X, y)
-        TsgamEstimator(...)
+        Estimator(...)
         """
         # Validate sample_weight shape before sort (must match X/y length)
         if sample_weight is not None:
@@ -932,7 +932,7 @@ class TsgamEstimator(RegressorMixin, BaseEstimator):
         metadata = cast(dict[str, dict[str, object]], decomposition["component_metadata"])
         self.exog_knots_ = [
             np.asarray(metadata[f"exog_{ix}"]["knots"])
-            if isinstance(exog_cfg, TsgamSplineConfig)
+            if isinstance(exog_cfg, SplineConfig)
             else None
             for ix, exog_cfg in enumerate(self.config.exog_config or [])
         ]
@@ -1220,15 +1220,15 @@ class TsgamEstimator(RegressorMixin, BaseEstimator):
 
 
 __all__ = [
-    "TsgamEstimator",
-    "TsgamEstimatorConfig",
-    "TsgamMultiPeriodicConfig",
-    "TsgamSplineConfig",
-    "TsgamLinearConfig",
-    "TsgamArConfig",
-    "TsgamTrendConfig",
-    "TsgamOutlierConfig",
-    "TsgamSolverConfig",
+    "Estimator",
+    "EstimatorConfig",
+    "MultiPeriodicConfig",
+    "SplineConfig",
+    "LinearConfig",
+    "ArConfig",
+    "TrendConfig",
+    "OutlierConfig",
+    "SolverConfig",
     "SolverOptionValue",
     "TrendType",
     "get_recommended_periods",

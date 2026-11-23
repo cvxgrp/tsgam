@@ -48,20 +48,20 @@ def _():
     from datetime import timedelta
     from signaldecomp.spline import make_spline_basis
 
-    # Add src directory to path to import tsgam_estimator
+    # Add src directory to path to import tsgam
     _project_root = Path(__file__).parent.parent
     _src_dir = _project_root / 'src'
     if str(_src_dir) not in sys.path:
         sys.path.insert(0, str(_src_dir))
 
-    from tsgam_estimator import (
-        TsgamEstimator,
-        TsgamEstimatorConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSplineConfig,
-        TsgamArConfig,
-        TsgamSolverConfig,
-        TsgamTrendConfig,
+    from tsgam import (
+        Estimator,
+        EstimatorConfig,
+        MultiPeriodicConfig,
+        SplineConfig,
+        ArConfig,
+        SolverConfig,
+        TrendConfig,
         TrendType,
         PERIOD_HOURLY_DAILY,
         PERIOD_HOURLY_WEEKLY,
@@ -81,13 +81,13 @@ def _():
         PERIOD_HOURLY_YEARLY,
         Path,
         TrendType,
-        TsgamArConfig,
-        TsgamEstimator,
-        TsgamEstimatorConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
-        TsgamSplineConfig,
-        TsgamTrendConfig,
+        ArConfig,
+        Estimator,
+        EstimatorConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
+        SplineConfig,
+        TrendConfig,
         make_spline_basis,
         mo,
         np,
@@ -128,12 +128,12 @@ def _(
     PERIOD_HOURLY_DAILY,
     PERIOD_HOURLY_WEEKLY,
     PERIOD_HOURLY_YEARLY,
-    TsgamArConfig,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
+    ArConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
+    SplineConfig,
     df_air_quality,
     example_select,
     fit_model_button,
@@ -174,7 +174,7 @@ def _(
         # Using 30-day period for better capture of monthly patterns (matching standalone example exactly)
         _periods_list_aq = [PERIOD_HOURLY_YEARLY, float(30*24.0), float(PERIOD_HOURLY_WEEKLY), float(PERIOD_HOURLY_DAILY)]
         _num_harmonics_list_aq = [4, 4, 8, 4]
-        _multi_periodic_config_aq = TsgamMultiPeriodicConfig(
+        _multi_periodic_config_aq = MultiPeriodicConfig(
             num_harmonics=_num_harmonics_list_aq,
             periods=_periods_list_aq,
             reg_weight=6e-5
@@ -184,21 +184,21 @@ def _(
         # Use only non-positive offsets for a causal model: negative values select
         # past observations, while positive values would use future data.
         _exog_config_aq = [
-            TsgamSplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),  # temperature (n_knots=8 to avoid solver issues)
-            TsgamSplineConfig(n_knots=10, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),  # dewpoint
-            TsgamSplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),  # wind_speed
-            TsgamSplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),  # pressure
-            TsgamSplineConfig(n_knots=6, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),  # rain_hours
+            SplineConfig(n_knots=8, lags=[-2, -1, 0], reg_weight=6e-5, diff_reg_weight=0.5),  # temperature (n_knots=8 to avoid solver issues)
+            SplineConfig(n_knots=10, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),  # dewpoint
+            SplineConfig(n_knots=8, lags=[-1, 0], reg_weight=6e-5, diff_reg_weight=0.5),  # wind_speed
+            SplineConfig(n_knots=8, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),  # pressure
+            SplineConfig(n_knots=6, lags=[0], reg_weight=6e-5, diff_reg_weight=0.5),  # rain_hours
         ]
 
         # AR config
-        _ar_config_aq = TsgamArConfig(lags=[1, 2, 3, 4], l1_constraint=0.97)
+        _ar_config_aq = ArConfig(lags=[1, 2, 3, 4], l1_constraint=0.97)
 
         # Solver config
-        _solver_config_aq = TsgamSolverConfig(solver='CLARABEL', verbose=False)
+        _solver_config_aq = SolverConfig(solver='CLARABEL', verbose=False)
 
         # Create config (matching standalone example exactly)
-        _config_aq = TsgamEstimatorConfig(
+        _config_aq = EstimatorConfig(
             multi_periodic_config=_multi_periodic_config_aq,
             exog_config=_exog_config_aq,
             ar_config=_ar_config_aq,
@@ -210,7 +210,7 @@ def _(
 
         # Fit model
         print("Fitting Air Quality model...")
-        estimator_aq = TsgamEstimator(config=_config_aq)
+        estimator_aq = Estimator(config=_config_aq)
         estimator_aq.fit(X_train_aq, _y_train_aq)
 
         print(f"Model fitted! Status: {estimator_aq.decomposition_['status']}")
@@ -247,11 +247,11 @@ def _(
     PERIOD_HOURLY_DAILY,
     PERIOD_HOURLY_WEEKLY,
     PERIOD_HOURLY_YEARLY,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
+    SplineConfig,
     create_train_test_split_with_gaps,
     df_la,
     example_select,
@@ -284,7 +284,7 @@ def _(
         y_test_la_aligned = _df_test_la[_target_var_la].loc[X_test_la.index].values
 
         # Multi-periodic config
-        _multi_periodic_config_la = TsgamMultiPeriodicConfig(
+        _multi_periodic_config_la = MultiPeriodicConfig(
             num_harmonics=[4, 4, 6],
             periods=[PERIOD_HOURLY_YEARLY, PERIOD_HOURLY_WEEKLY, PERIOD_HOURLY_DAILY],
             reg_weight=6e-5
@@ -292,15 +292,15 @@ def _(
 
         # Exogenous configs (pre-canned with requested lags)
         _exog_config_la = [
-            TsgamSplineConfig(n_knots=10, lags=[-2, -1, 0, 1, 2], reg_weight=6e-5, diff_reg_weight=0.5),  # temperature
-            TsgamSplineConfig(n_knots=8, lags=[-2, -1, 0, 1, 2], reg_weight=6e-5, diff_reg_weight=0.5),  # humidity
+            SplineConfig(n_knots=10, lags=[-2, -1, 0, 1, 2], reg_weight=6e-5, diff_reg_weight=0.5),  # temperature
+            SplineConfig(n_knots=8, lags=[-2, -1, 0, 1, 2], reg_weight=6e-5, diff_reg_weight=0.5),  # humidity
         ]
 
         # Solver config
-        _solver_config_la = TsgamSolverConfig(solver='CLARABEL', verbose=False)
+        _solver_config_la = SolverConfig(solver='CLARABEL', verbose=False)
 
         # Create config
-        _config_la = TsgamEstimatorConfig(
+        _config_la = EstimatorConfig(
             multi_periodic_config=_multi_periodic_config_la,
             exog_config=_exog_config_la,
             ar_config=None,
@@ -310,7 +310,7 @@ def _(
 
         # Fit model
         print("Fitting LA Energy model...")
-        estimator_la = TsgamEstimator(config=_config_la)
+        estimator_la = Estimator(config=_config_la)
         estimator_la.fit(X_train_la, _y_train_la_log)
 
         print(f"Model fitted! Status: {estimator_la.decomposition_['status']}")
@@ -337,12 +337,12 @@ def _(
 def _(
     DataHandler,
     TrendType,
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
-    TsgamSplineConfig,
-    TsgamTrendConfig,
+    Estimator,
+    EstimatorConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
+    SplineConfig,
+    TrendConfig,
     df_pv_raw,
     example_select,
     fit_model_button,
@@ -489,7 +489,7 @@ def _(
             _period_daily_hours_pv = 24.0
             _period_yearly_hours_pv = 365.2425 * 24.0
 
-            _multi_periodic_config_pv = TsgamMultiPeriodicConfig(
+            _multi_periodic_config_pv = MultiPeriodicConfig(
                 num_harmonics=[6, 10],
                 periods=[_period_yearly_hours_pv, _period_daily_hours_pv],
                 reg_weight=1e-2
@@ -497,22 +497,22 @@ def _(
 
             # Exogenous configs (pre-canned)
             _exog_config_pv = [
-                TsgamSplineConfig(n_knots=10, lags=[0], reg_weight=1e-4, diff_reg_weight=0.5),  # temp
-                TsgamSplineConfig(n_knots=10, lags=[0], reg_weight=1e-4, diff_reg_weight=0.5),  # irrad
+                SplineConfig(n_knots=10, lags=[0], reg_weight=1e-4, diff_reg_weight=0.5),  # temp
+                SplineConfig(n_knots=10, lags=[0], reg_weight=1e-4, diff_reg_weight=0.5),  # irrad
             ]
 
             # Trend config
-            _trend_config_pv = TsgamTrendConfig(
+            _trend_config_pv = TrendConfig(
                 trend_type=TrendType.NONLINEAR_DECREASING,
                 grouping=24.0,
                 reg_weight=10.0
             )
 
             # Solver config
-            _solver_config_pv = TsgamSolverConfig(solver='CLARABEL', verbose=False)
+            _solver_config_pv = SolverConfig(solver='CLARABEL', verbose=False)
 
             # Create config
-            _config_pv = TsgamEstimatorConfig(
+            _config_pv = EstimatorConfig(
                 multi_periodic_config=_multi_periodic_config_pv,
                 exog_config=_exog_config_pv,
                 trend_config=_trend_config_pv,
@@ -521,7 +521,7 @@ def _(
 
             # Fit model
             print("Fitting PV/Solar model...")
-            estimator_pv = TsgamEstimator(config=_config_pv)
+            estimator_pv = Estimator(config=_config_pv)
             estimator_pv.fit(_X_pv, _y_pv)
 
             print(f"Model fitted! Status: {estimator_pv.decomposition_['status']}")

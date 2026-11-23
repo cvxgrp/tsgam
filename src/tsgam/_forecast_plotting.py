@@ -162,7 +162,7 @@ def forecast_to_long_dataframe(
     Parameters
     ----------
     predictions
-        Output from :meth:`TsgamForecastEstimator.predict`. Rows are forecast
+        Output from :meth:`ForecastEstimator.predict`. Rows are forecast
         origins and columns are named ``horizon_0``, ``horizon_1``, and so on,
         or begin at ``horizon_1`` when nowcasting is disabled.
     actual
@@ -228,7 +228,7 @@ def _get_axes(ax: Axes | None, *, figsize: tuple[float, float]) -> Axes:
         import matplotlib.pyplot as plt
     except ImportError as error:  # pragma: no cover - depends on user environment
         raise ImportError(
-            "Forecast plotting requires matplotlib. Install tsgam-estimator[viz] "
+            "Forecast plotting requires matplotlib. Install tsgam[viz] "
             "or add matplotlib to the notebook environment."
         ) from error
     _, created_ax = plt.subplots(figsize=figsize, layout="constrained")

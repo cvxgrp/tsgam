@@ -31,7 +31,7 @@ def _(mo):
     # Direct autoregressive multi-horizon forecasting
 
     This example isolates the forecasting AR feature added to
-    `TsgamForecastEstimator`. The synthetic target has three parts:
+    `ForecastEstimator`. The synthetic target has three parts:
 
     The target is $y_t = s_t + 0.60x_t + r_t$, where $s_t$ is the daily and
     weekly baseline, $x_t$ is the standardized AR(1) driver used in the
@@ -62,28 +62,28 @@ def _():
     if str(src_dir) not in sys.path:
         sys.path.insert(0, str(src_dir))
 
-    from tsgam_estimator import (
-        TsgamEstimatorConfig,
-        TsgamForecastArConfig,
-        TsgamForecastConfig,
-        TsgamForecastCouplingConfig,
-        TsgamForecastEstimator,
-        TsgamLinearConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
+    from tsgam import (
+        EstimatorConfig,
+        ForecastArConfig,
+        ForecastConfig,
+        ForecastCouplingConfig,
+        ForecastEstimator,
+        LinearConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
         plot_forecast_origin,
     )
 
     sns.set_theme(style="whitegrid", context="notebook")
     return (
-        TsgamEstimatorConfig,
-        TsgamForecastArConfig,
-        TsgamForecastConfig,
-        TsgamForecastCouplingConfig,
-        TsgamForecastEstimator,
-        TsgamLinearConfig,
-        TsgamMultiPeriodicConfig,
-        TsgamSolverConfig,
+        EstimatorConfig,
+        ForecastArConfig,
+        ForecastConfig,
+        ForecastCouplingConfig,
+        ForecastEstimator,
+        LinearConfig,
+        MultiPeriodicConfig,
+        SolverConfig,
         mo,
         np,
         pd,
@@ -122,14 +122,14 @@ def _(mo):
 
 @app.cell
 def _(
-    TsgamEstimatorConfig,
-    TsgamForecastArConfig,
-    TsgamForecastConfig,
-    TsgamForecastCouplingConfig,
-    TsgamForecastEstimator,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
+    EstimatorConfig,
+    ForecastArConfig,
+    ForecastConfig,
+    ForecastCouplingConfig,
+    ForecastEstimator,
+    LinearConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
     ar_order_control,
     include_nowcast_control,
     np,
@@ -184,53 +184,53 @@ def _(
     observed_history = frame["observed"]
 
     def base_config():
-        return TsgamEstimatorConfig(
-            multi_periodic_config=TsgamMultiPeriodicConfig(
+        return EstimatorConfig(
+            multi_periodic_config=MultiPeriodicConfig(
                 num_harmonics=[3, 2],
                 periods=[24, 168],
                 reg_weight=1.0e-5,
             ),
             exog_config=[
-                TsgamLinearConfig(
+                LinearConfig(
                     lags=[0],
                     reg_weight=1.0e-5,
                     diff_reg_weight=0.0,
                 )
             ],
-            solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+            solver_config=SolverConfig(solver="CLARABEL", verbose=False),
         )
 
-    periodic_model = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    periodic_model = ForecastEstimator(
+        ForecastConfig(
             horizon=forecast_horizon,
             base_config=base_config(),
             mode="independent",
             include_nowcast=include_nowcast,
         )
     ).fit(X_train, y_train)
-    independent_model = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    independent_model = ForecastEstimator(
+        ForecastConfig(
             horizon=forecast_horizon,
             base_config=base_config(),
             mode="independent",
             include_nowcast=include_nowcast,
-            forecast_ar_config=TsgamForecastArConfig(
+            forecast_ar_config=ForecastArConfig(
                 lags=target_lags,
                 reg_weight=1.0e-5,
             ),
         )
     ).fit(X_train, y_train)
-    coupled_model = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    coupled_model = ForecastEstimator(
+        ForecastConfig(
             horizon=forecast_horizon,
             base_config=base_config(),
             mode="coupled",
             include_nowcast=include_nowcast,
-            forecast_ar_config=TsgamForecastArConfig(
+            forecast_ar_config=ForecastArConfig(
                 lags=target_lags,
                 reg_weight=1.0e-5,
             ),
-            coupling_config=TsgamForecastCouplingConfig(
+            coupling_config=ForecastCouplingConfig(
                 roughness_weight=0.01,
                 roughness_order=1,
             ),
@@ -623,9 +623,9 @@ def _(mo):
     - The adjustment should usually decay with horizon because the planted AR(1)
       process gradually forgets its current state.
 
-    `TsgamArConfig` is not involved here. That older configuration models residuals
+    `ArConfig` is not involved here. That older configuration models residuals
     for stochastic sample generation; this notebook uses deterministic direct
-    target-history forecasting through `TsgamForecastArConfig`.
+    target-history forecasting through `ForecastArConfig`.
     """)
     return
 

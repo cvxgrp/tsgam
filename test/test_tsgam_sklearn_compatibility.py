@@ -7,34 +7,34 @@ import pytest
 from sklearn.base import clone, is_regressor
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 
-from tsgam_estimator import (
-    TsgamEstimator,
-    TsgamEstimatorConfig,
-    TsgamForecastArConfig,
-    TsgamForecastConfig,
-    TsgamForecastCouplingConfig,
-    TsgamForecastEstimator,
-    TsgamLinearConfig,
-    TsgamMultiPeriodicConfig,
-    TsgamSolverConfig,
+from tsgam import (
+    Estimator,
+    EstimatorConfig,
+    ForecastArConfig,
+    ForecastConfig,
+    ForecastCouplingConfig,
+    ForecastEstimator,
+    LinearConfig,
+    MultiPeriodicConfig,
+    SolverConfig,
 )
 
 
-def _config(*, harmonics: int = 1) -> TsgamEstimatorConfig:
-    return TsgamEstimatorConfig(
-        multi_periodic_config=TsgamMultiPeriodicConfig(
+def _config(*, harmonics: int = 1) -> EstimatorConfig:
+    return EstimatorConfig(
+        multi_periodic_config=MultiPeriodicConfig(
             num_harmonics=[harmonics],
             periods=[24.0],
             reg_weight=1.0e-6,
         ),
         exog_config=[
-            TsgamLinearConfig(
+            LinearConfig(
                 lags=[0],
                 reg_weight=1.0e-6,
                 diff_reg_weight=0.0,
             )
         ],
-        solver_config=TsgamSolverConfig(solver="CLARABEL", verbose=False),
+        solver_config=SolverConfig(solver="CLARABEL", verbose=False),
     )
 
 
@@ -51,12 +51,12 @@ def _data(n_samples: int = 192) -> tuple[pd.DataFrame, np.ndarray]:
 
 
 def test_estimator_is_a_cloneable_regressor():
-    estimator = TsgamEstimator(_config())
+    estimator = Estimator(_config())
 
     cloned = clone(estimator)
 
     assert is_regressor(estimator)
-    assert isinstance(cloned, TsgamEstimator)
+    assert isinstance(cloned, Estimator)
     assert cloned.config is not estimator.config
     assert cloned.config.multi_periodic_config is not (
         estimator.config.multi_periodic_config
@@ -64,7 +64,7 @@ def test_estimator_is_a_cloneable_regressor():
 
 
 def test_nested_configs_follow_sklearn_parameter_protocol():
-    estimator = TsgamEstimator(_config())
+    estimator = Estimator(_config())
 
     params = estimator.get_params(deep=True)
 
@@ -90,7 +90,7 @@ def test_nested_configs_follow_sklearn_parameter_protocol():
 def test_fit_records_sklearn_feature_metadata():
     X, y = _data()
 
-    estimator = TsgamEstimator(_config()).fit(X, y)
+    estimator = Estimator(_config()).fit(X, y)
 
     assert estimator.n_features_in_ == 1
     np.testing.assert_array_equal(estimator.feature_names_in_, ["driver"])
@@ -99,7 +99,7 @@ def test_fit_records_sklearn_feature_metadata():
 def test_grid_search_tunes_nested_tsgam_config():
     X, y = _data()
     search = GridSearchCV(
-        TsgamEstimator(_config()),
+        Estimator(_config()),
         param_grid={
             "config__multi_periodic_config__num_harmonics": [[1], [2]],
         },
@@ -118,13 +118,13 @@ def test_grid_search_tunes_nested_tsgam_config():
 
 
 def test_forecast_estimator_is_cloneable_with_nested_parameters():
-    estimator = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    estimator = ForecastEstimator(
+        ForecastConfig(
             horizon=2,
             base_config=_config(),
             mode="coupled",
-            coupling_config=TsgamForecastCouplingConfig(roughness_weight=0.5),
-            forecast_ar_config=TsgamForecastArConfig(lags=[1, 0]),
+            coupling_config=ForecastCouplingConfig(roughness_weight=0.5),
+            forecast_ar_config=ForecastArConfig(lags=[1, 0]),
         )
     )
 
@@ -132,7 +132,7 @@ def test_forecast_estimator_is_cloneable_with_nested_parameters():
     params = estimator.get_params(deep=True)
 
     assert is_regressor(estimator)
-    assert isinstance(cloned, TsgamForecastEstimator)
+    assert isinstance(cloned, ForecastEstimator)
     assert cloned.config is not estimator.config
     assert params["config__base_config__multi_periodic_config__reg_weight"] == 1.0e-6
     assert params["config__coupling_config__roughness_weight"] == 0.5
@@ -151,11 +151,11 @@ def test_forecast_estimator_is_cloneable_with_nested_parameters():
 
 def test_forecast_fit_records_public_input_feature_metadata():
     X, y = _data()
-    estimator = TsgamForecastEstimator(
-        TsgamForecastConfig(
+    estimator = ForecastEstimator(
+        ForecastConfig(
             horizon=1,
             base_config=_config(),
-            forecast_ar_config=TsgamForecastArConfig(lags=[0]),
+            forecast_ar_config=ForecastArConfig(lags=[0]),
         )
     )
 
