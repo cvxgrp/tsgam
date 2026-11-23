@@ -1,0 +1,1389 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tsgam._estimator &mdash; TSGAM 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            TSGAM
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">TSGAM</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">tsgam._estimator</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for tsgam._estimator</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) 2025 Alliance for Sustainable Energy, LLC and Nimish Telang</span>
+<span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrEnum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">cast</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">cvxpy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">ndarray</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy.random</span><span class="w"> </span><span class="kn">import</span> <span class="n">RandomState</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">signal</span><span class="p">,</span> <span class="n">stats</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">signaldecomp</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_offset_basis</span><span class="p">,</span> <span class="n">solve</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">signaldecomp.spline</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_spline_basis</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">RegressorMixin</span><span class="p">,</span> <span class="n">check_is_fitted</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_random_state</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._design</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_extract_timestamps</span><span class="p">,</span>
+    <span class="n">_to_pandas_timedelta_frequency</span><span class="p">,</span>
+    <span class="n">build_tsgam_design</span><span class="p">,</span>
+    <span class="n">infer_fit_frequency</span><span class="p">,</span>
+    <span class="n">sort_fit_inputs</span><span class="p">,</span>
+    <span class="n">sort_predict_X</span><span class="p">,</span>
+    <span class="n">validate_predict_frequency</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._problem</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">evaluate_single_output_prediction</span><span class="p">,</span>
+    <span class="n">build_single_output_decomposition</span><span class="p">,</span>
+    <span class="n">legacy_variable_views</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._sklearn</span><span class="w"> </span><span class="kn">import</span> <span class="n">SklearnConfigMixin</span><span class="p">,</span> <span class="n">make_supported_scorer</span>
+
+
+<div class="viewcode-block" id="MultiPeriodicConfig">
+<a class="viewcode-back" href="../../api.html#tsgam.MultiPeriodicConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MultiPeriodicConfig</span><span class="p">(</span><span class="n">SklearnConfigMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for multi-periodic Fourier basis functions.</span>
+
+<span class="sd">    This config defines the seasonal/periodic patterns in the time series using</span>
+<span class="sd">    Fourier basis functions with multiple harmonics and periods. Each period</span>
+<span class="sd">    can have multiple harmonics to capture complex seasonal patterns.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    num_harmonics : list[int]</span>
+<span class="sd">        Number of harmonics for each period. Each element corresponds to a period.</span>
+<span class="sd">        For example, [6, 4, 3] means 6 harmonics for the first period,</span>
+<span class="sd">        4 for the second, and 3 for the third.</span>
+<span class="sd">    periods : list[float]</span>
+<span class="sd">        Periods for each harmonic block, in hours. Must have same length as</span>
+<span class="sd">        num_harmonics. Common values:</span>
+<span class="sd">        - 24: daily pattern</span>
+<span class="sd">        - 168 (7*24): weekly pattern</span>
+<span class="sd">        - 8766 (365.2425*24): yearly pattern</span>
+<span class="sd">    reg_weight : float, default=1.0e-4</span>
+<span class="sd">        Regularization weight for Fourier coefficients. Higher values increase</span>
+<span class="sd">        smoothness of the seasonal patterns. Typical range: 1e-5 to 1e-3.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; config = MultiPeriodicConfig(</span>
+<span class="sd">    ...     num_harmonics=[6, 4, 3],</span>
+<span class="sd">    ...     periods=[365.2425 * 24, 7 * 24, 24]  # yearly, weekly, daily</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">num_harmonics</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">periods</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">reg_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0e-4</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_harmonics</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">periods</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;num_harmonics and periods must have the same length.&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ix</span><span class="p">,</span> <span class="p">(</span><span class="n">harmonics</span><span class="p">,</span> <span class="n">period</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_harmonics</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">periods</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">harmonics</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">))</span>
+                <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">harmonics</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="n">harmonics</span> <span class="o">&lt;</span> <span class="mi">0</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;num_harmonics[</span><span class="si">{</span><span class="n">ix</span><span class="si">}</span><span class="s2">] must be a non-negative integer, got </span><span class="si">{</span><span class="n">harmonics</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">period</span><span class="p">)</span> <span class="ow">or</span> <span class="n">period</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;periods[</span><span class="si">{</span><span class="n">ix</span><span class="si">}</span><span class="s2">] must be positive and finite, got </span><span class="si">{</span><span class="n">period</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">)</span>
+            <span class="n">max_harmonics</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">period</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">harmonics</span> <span class="o">&gt;</span> <span class="n">max_harmonics</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;num_harmonics[</span><span class="si">{</span><span class="n">ix</span><span class="si">}</span><span class="s2">]=</span><span class="si">{</span><span class="n">harmonics</span><span class="si">}</span><span class="s2"> exceeds the Nyquist limit &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">max_harmonics</span><span class="si">}</span><span class="s2"> for period </span><span class="si">{</span><span class="nb">float</span><span class="p">(</span><span class="n">period</span><span class="p">)</span><span class="si">:</span><span class="s2">.6g</span><span class="si">}</span><span class="s2"> samples.&quot;</span>
+                <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SplineConfig">
+<a class="viewcode-back" href="../../api.html#tsgam.SplineConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SplineConfig</span><span class="p">(</span><span class="n">SklearnConfigMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for cubic spline basis functions for exogenous variables.</span>
+
+<span class="sd">    This config defines how an exogenous variable (e.g., temperature) is modeled</span>
+<span class="sd">    using cubic splines with optional lead/lag terms. Splines allow for non-linear</span>
+<span class="sd">    relationships between the exogenous variable and the target.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    n_knots : int or None</span>
+<span class="sd">        Number of knots for the spline basis. Knots will be evenly spaced between</span>
+<span class="sd">        min and max of the variable. If None, knots must be provided explicitly.</span>
+<span class="sd">        Ignored if knots is non-empty.</span>
+<span class="sd">    lags : list[int], default=[0]</span>
+<span class="sd">        Time offsets for the exogenous variable, evaluated as ``x[t + offset]``.</span>
+<span class="sd">        Negative values are lags (past values), and positive values are leads</span>
+<span class="sd">        (future values). For example, ``[-3, -2, -1, 0]`` includes the current</span>
+<span class="sd">        value and the previous three samples.</span>
+<span class="sd">    reg_weight : float, default=1.0e-4</span>
+<span class="sd">        Regularization weight for spline coefficients. Higher values increase</span>
+<span class="sd">        smoothness. Typical range: 1e-5 to 1e-3.</span>
+<span class="sd">    diff_reg_weight : float, default=1.0</span>
+<span class="sd">        Regularization weight for differences between coefficients at different</span>
+<span class="sd">        lags. This encourages smooth transitions across lags. Higher values make</span>
+<span class="sd">        lag coefficients more similar.</span>
+<span class="sd">    knots : list[float], default=[]</span>
+<span class="sd">        Explicit knot locations for the spline. If empty list, knots will be</span>
+<span class="sd">        auto-generated using n_knots. If provided, n_knots is ignored.</span>
+<span class="sd">    whiten : bool, default=False</span>
+<span class="sd">        Use SignalDecomp&#39;s exact full-rank whitening on the fitting mask.</span>
+<span class="sd">        Original coefficient penalties are preserved; rank deficiency raises.</span>
+<span class="sd">    rank_tolerance : float or None, default=None</span>
+<span class="sd">        Absolute numerical-rank threshold for SignalDecomp diagnostics/whitening.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; # Auto-generate 10 knots</span>
+<span class="sd">    &gt;&gt;&gt; config = SplineConfig(n_knots=10, lags=[-1, 0, 1])</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Use explicit knots</span>
+<span class="sd">    &gt;&gt;&gt; config = SplineConfig(</span>
+<span class="sd">    ...     knots=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],</span>
+<span class="sd">    ...     lags=[0]</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n_knots</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">lags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">reg_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0e-4</span>
+    <span class="n">diff_reg_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">knots</span><span class="p">:</span> <span class="n">ndarray</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">whiten</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">rank_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">knots</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">knots</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">knots</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_knots</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_knots</span> <span class="o">&lt;</span> <span class="mi">3</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Spline responses require at least three knots. For a linear &quot;</span>
+                <span class="s2">&quot;response (formerly n_knots=2), use LinearConfig with the &quot;</span>
+                <span class="s2">&quot;same lags and regularization weights.&quot;</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LinearConfig">
+<a class="viewcode-back" href="../../api.html#tsgam.LinearConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">LinearConfig</span><span class="p">(</span><span class="n">SklearnConfigMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for linear basis functions for exogenous variables.</span>
+
+<span class="sd">    This config defines how an exogenous variable is modeled using simple linear</span>
+<span class="sd">    terms with optional lead/lag. Use this instead of SplineConfig when</span>
+<span class="sd">    you expect a linear relationship.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    lags : list[int], default=[0]</span>
+<span class="sd">        Time offsets for the exogenous variable, evaluated as ``x[t + offset]``.</span>
+<span class="sd">        Negative values are lags (past values), and positive values are leads</span>
+<span class="sd">        (future values). For example, ``[-1, 0]`` includes the current value and</span>
+<span class="sd">        the previous sample.</span>
+<span class="sd">    reg_weight : float, default=1.0e-4</span>
+<span class="sd">        Regularization weight for linear coefficients. Higher values increase</span>
+<span class="sd">        regularization. Typical range: 1e-5 to 1e-3.</span>
+<span class="sd">    diff_reg_weight : float, default=1.0</span>
+<span class="sd">        Regularization weight for differences between coefficients at different</span>
+<span class="sd">        lags. This encourages smooth transitions across lags. Higher values make</span>
+<span class="sd">        lag coefficients more similar.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; config = LinearConfig(lags=[-2, -1, 0, 1, 2])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">lags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">reg_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0e-4</span>
+    <span class="n">diff_reg_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span></div>
+
+
+<div class="viewcode-block" id="ArConfig">
+<a class="viewcode-back" href="../../api.html#tsgam.ArConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ArConfig</span><span class="p">(</span><span class="n">SklearnConfigMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for autoregressive (AR) residual modeling.</span>
+
+<span class="sd">    After fitting the baseline model (Fourier + exogenous), this config enables</span>
+<span class="sd">    fitting an AR model on the residuals to capture remaining temporal dependencies.</span>
+<span class="sd">    The AR model uses L1 regularization to encourage sparsity.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    lags : list[int]</span>
+<span class="sd">        AR lags to include in the model. Typically [1] for AR(1), [1, 2] for AR(2), etc.</span>
+<span class="sd">        Only positive lags are meaningful (looking back in time).</span>
+<span class="sd">    l1_constraint : float, default=0.95</span>
+<span class="sd">        L1 norm constraint for AR coefficients. This controls sparsity - lower values</span>
+<span class="sd">        allow fewer non-zero coefficients. Typical range: 0.5 to 1.0.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; # AR(1) model</span>
+<span class="sd">    &gt;&gt;&gt; config = ArConfig(lags=[1], l1_constraint=0.95)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # AR(2) model with tighter constraint</span>
+<span class="sd">    &gt;&gt;&gt; config = ArConfig(lags=[1, 2], l1_constraint=0.8)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">lags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+    <span class="n">l1_constraint</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.95</span></div>
+
+
+
+<div class="viewcode-block" id="TrendType">
+<a class="viewcode-back" href="../../api.html#tsgam.TrendType">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TrendType</span><span class="p">(</span><span class="n">StrEnum</span><span class="p">):</span>
+    <span class="n">NONE</span> <span class="o">=</span> <span class="s1">&#39;none&#39;</span>
+    <span class="n">LINEAR</span> <span class="o">=</span> <span class="s1">&#39;linear&#39;</span>
+    <span class="n">NONLINEAR</span> <span class="o">=</span> <span class="s1">&#39;nonlinear&#39;</span>
+    <span class="n">NONLINEAR_DECREASING</span> <span class="o">=</span> <span class="s1">&#39;nonlinear_decreasing&#39;</span>
+    <span class="n">NONLINEAR_INCREASING</span> <span class="o">=</span> <span class="s1">&#39;nonlinear_increasing&#39;</span>
+    <span class="n">NONLINEAR_DEC</span> <span class="o">=</span> <span class="s1">&#39;nonlinear_decreasing&#39;</span>
+    <span class="n">NONLINEAR_INC</span> <span class="o">=</span> <span class="s1">&#39;nonlinear_increasing&#39;</span></div>
+
+
+<div class="viewcode-block" id="TrendConfig">
+<a class="viewcode-back" href="../../api.html#tsgam.TrendConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TrendConfig</span><span class="p">(</span><span class="n">SklearnConfigMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for trend term in the model.</span>
+
+<span class="sd">    The trend is constant per period (e.g., per day for hourly data). This allows</span>
+<span class="sd">    modeling long-term changes that are constant within each period but can vary</span>
+<span class="sd">    across periods.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    trend_type : str, default=&#39;none&#39;</span>
+<span class="sd">        Type of trend to fit:</span>
+<span class="sd">        - &#39;none&#39;: No trend (trend = 0)</span>
+<span class="sd">        - &#39;linear&#39;: Linear trend with constant slope</span>
+<span class="sd">        - &#39;nonlinear&#39;: Non-linear monotonic decreasing trend</span>
+<span class="sd">    period_hours : float or None, default=None</span>
+<span class="sd">        Period length in hours. If None, will be inferred from data frequency</span>
+<span class="sd">        (defaults to daily: 24 hours for hourly data, 1 day for daily data, etc.).</span>
+<span class="sd">        For example:</span>
+<span class="sd">        - Hourly data: 24.0 for daily trend, 168.0 for weekly trend</span>
+<span class="sd">        - 15-minute data: 24.0 for daily trend (96 samples per day)</span>
+<span class="sd">        - Daily data: 7.0 for weekly trend, 365.2425 for yearly trend</span>
+<span class="sd">    reg_weight : float, default=10.0</span>
+<span class="sd">        Regularization weight for trend differences. Higher values encourage</span>
+<span class="sd">        smoother trends. Typical range: 1.0 to 100.0.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; # Daily trend for hourly data (default)</span>
+<span class="sd">    &gt;&gt;&gt; config = TrendConfig(trend_type=&#39;linear&#39;)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Weekly trend for hourly data</span>
+<span class="sd">    &gt;&gt;&gt; config = TrendConfig(trend_type=&#39;nonlinear&#39;, period_hours=168.0)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # No trend</span>
+<span class="sd">    &gt;&gt;&gt; config = TrendConfig(trend_type=&#39;none&#39;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">trend_type</span><span class="p">:</span> <span class="n">TrendType</span> <span class="o">=</span> <span class="n">TrendType</span><span class="o">.</span><span class="n">NONE</span>
+    <span class="n">grouping</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># todo: rename this to something better</span>
+    <span class="n">reg_weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trend_type</span> <span class="o">=</span> <span class="n">TrendType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">trend_type</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OutlierConfig">
+<a class="viewcode-back" href="../../api.html#tsgam.OutlierConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">OutlierConfig</span><span class="p">(</span><span class="n">SklearnConfigMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for the outlier detector component.</span>
+
+<span class="sd">    The outlier detector identifies anomalous periods (e.g., days) in the time series</span>
+<span class="sd">    with sparse multiplicative corrections. This component is particularly useful for</span>
+<span class="sd">    detecting days with unusual patterns that deviate from the normal seasonal and</span>
+<span class="sd">    trend behavior, such as holidays, special events, or data quality issues.</span>
+
+<span class="sd">    How it works:</span>
+
+<span class="sd">    - The detector assigns one correction value per period (e.g., per day)</span>
+<span class="sd">    - Corrections are constant across all samples within a period</span>
+<span class="sd">    - L1 regularization encourages sparsity: most periods have no correction (≈0),</span>
+<span class="sd">      while only outlier periods have non-zero corrections</span>
+<span class="sd">    - The correction is additive in log space, which translates to a multiplicative</span>
+<span class="sd">      effect in the original scale (e.g., 0.2 in log space ≈ 0.82x multiplier,</span>
+<span class="sd">      0.5 in log space ≈ 1.65x multiplier)</span>
+
+<span class="sd">    Mathematical formulation:</span>
+
+<span class="sd">    The outlier term is added to the model as: ``T @ outlier``, where:</span>
+
+<span class="sd">    - ``T`` is a binary matrix mapping each sample to its period</span>
+<span class="sd">    - ``outlier`` is a sparse vector of period-level corrections</span>
+<span class="sd">    - The L1 penalty ``reg_weight * ||outlier||_1`` encourages sparsity</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    reg_weight : float</span>
+<span class="sd">        L1 regularization weight controlling sparsity of outlier detection.</span>
+<span class="sd">        Higher values encourage more sparsity (fewer outliers detected).</span>
+<span class="sd">        Lower values allow more outliers to be detected.</span>
+
+<span class="sd">        Typical ranges:</span>
+
+<span class="sd">        - Very sparse (few outliers): 0.01 to 0.1</span>
+<span class="sd">        - Moderate sparsity: 0.001 to 0.01</span>
+<span class="sd">        - More sensitive (more outliers): 0.0001 to 0.001</span>
+
+<span class="sd">        Guidelines:</span>
+
+<span class="sd">        - Start with 0.002 and adjust based on results</span>
+<span class="sd">        - If too many outliers detected (&gt;10% of periods), increase reg_weight</span>
+<span class="sd">        - If no outliers detected, decrease reg_weight</span>
+<span class="sd">        - For real-world data, values between 0.001 and 0.01 are often appropriate</span>
+
+<span class="sd">    period_hours : float or None, default=None</span>
+<span class="sd">        Period length in hours for which the outlier correction is constant.</span>
+<span class="sd">        If None, defaults to 24.0 hours (daily outliers) for hourly data.</span>
+
+<span class="sd">        Examples:</span>
+
+<span class="sd">        - Hourly data, daily outliers: ``period_hours=24.0`` (default)</span>
+<span class="sd">        - 15-minute data, daily outliers: ``period_hours=24.0`` (96 samples per day)</span>
+<span class="sd">        - Hourly data, weekly outliers: ``period_hours=168.0`` (7 days)</span>
+<span class="sd">        - Daily data, weekly outliers: ``period_hours=7.0``</span>
+<span class="sd">        - Hourly data, hourly outliers: ``period_hours=1.0`` (not recommended, use AR instead)</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - The outlier detector works best when the target is log-transformed, as it</span>
+<span class="sd">      naturally models multiplicative effects</span>
+<span class="sd">    - Outlier corrections are applied during both fit and predict</span>
+<span class="sd">    - For prediction periods beyond the training data, outlier corrections default</span>
+<span class="sd">      to 0 (no correction)</span>
+<span class="sd">    - The detector is most effective when combined with other components (seasonality,</span>
+<span class="sd">      trend, exogenous variables) that explain normal variation, leaving outliers</span>
+<span class="sd">      as the residual anomaly</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; # Daily outlier detector for hourly data (default, moderate sparsity)</span>
+<span class="sd">    &gt;&gt;&gt; config = OutlierConfig(reg_weight=0.002)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Weekly outlier detector with higher sparsity (fewer outliers)</span>
+<span class="sd">    &gt;&gt;&gt; config = OutlierConfig(reg_weight=0.01, period_hours=168.0)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Daily outlier detector with lower sparsity (more outliers detected)</span>
+<span class="sd">    &gt;&gt;&gt; config = OutlierConfig(reg_weight=0.001)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Very sparse detector (only extreme outliers)</span>
+<span class="sd">    &gt;&gt;&gt; config = OutlierConfig(reg_weight=0.1)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Use in full estimator configuration</span>
+<span class="sd">    &gt;&gt;&gt; from tsgam import EstimatorConfig</span>
+<span class="sd">    &gt;&gt;&gt; estimator_config = EstimatorConfig(</span>
+<span class="sd">    ...     outlier_config=OutlierConfig(reg_weight=0.002)</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">reg_weight</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">period_hours</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<span class="nb">type</span> <span class="n">SolverOptionValue</span> <span class="o">=</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">bool</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SolverOptionValue</span><span class="p">]</span>
+
+<div class="viewcode-block" id="SolverConfig">
+<a class="viewcode-back" href="../../api.html#tsgam.SolverConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SolverConfig</span><span class="p">(</span><span class="n">SklearnConfigMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for the CVXPY solver used in optimization.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    solver : str, default=&#39;CLARABEL&#39;</span>
+<span class="sd">        CVXPY solver name. Common options:</span>
+<span class="sd">        - &#39;CLARABEL&#39;: Fast, modern solver (recommended)</span>
+<span class="sd">        - &#39;ECOS&#39;: Reliable, slower</span>
+<span class="sd">        - &#39;OSQP&#39;: Good for quadratic problems</span>
+<span class="sd">        - &#39;SCS&#39;: General purpose</span>
+<span class="sd">    verbose : bool, default=True</span>
+<span class="sd">        Whether to print solver output during optimization. Useful for debugging</span>
+<span class="sd">        but can be verbose for large problems.</span>
+<span class="sd">    warm_start : bool, default=True</span>
+<span class="sd">        Whether to warm-start the solver using cached results from a previous</span>
+<span class="sd">        solve. Can significantly speed up repeated solves with similar data.</span>
+<span class="sd">    solver_opts : dict[str, SolverOptionValue] | None, default=None</span>
+<span class="sd">        Additional keyword arguments forwarded to ``cvxpy.Problem.solve()``.</span>
+<span class="sd">        Each solver accepts its own options; see</span>
+<span class="sd">        https://www.cvxpy.org/tutorial/solvers/index.html#setting-solver-options</span>
+
+<span class="sd">        CLARABEL options include ``max_iter`` (default 50) and</span>
+<span class="sd">        ``time_limit`` (default 0.0, no limit).</span>
+
+<span class="sd">        MOSEK options are passed via a ``mosek_params`` dict with string</span>
+<span class="sd">        parameter names, e.g.</span>
+<span class="sd">        ``{&quot;mosek_params&quot;: {&quot;MSK_IPAR_INTPNT_MAX_ITERATIONS&quot;: 400}}``.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; config = SolverConfig(solver=&#39;CLARABEL&#39;, verbose=False)</span>
+<span class="sd">    &gt;&gt;&gt; config = SolverConfig(</span>
+<span class="sd">    ...     solver=&#39;CLARABEL&#39;,</span>
+<span class="sd">    ...     solver_opts={&quot;max_iter&quot;: 200, &quot;time_limit&quot;: 60.0},</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; config = SolverConfig(</span>
+<span class="sd">    ...     solver=&#39;MOSEK&#39;,</span>
+<span class="sd">    ...     solver_opts={</span>
+<span class="sd">    ...         &quot;mosek_params&quot;: {&quot;MSK_IPAR_INTPNT_MAX_ITERATIONS&quot;: 400}</span>
+<span class="sd">    ...     },</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">solver</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;CLARABEL&#39;</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">warm_start</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">solver_opts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SolverOptionValue</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">_RESERVED_KEYS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;solver&quot;</span><span class="p">,</span> <span class="s2">&quot;verbose&quot;</span><span class="p">,</span> <span class="s2">&quot;warm_start&quot;</span><span class="p">})</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_solve_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SolverOptionValue</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the extra kwargs dict for ``Problem.solve()``, validating no reserved keys.&quot;&quot;&quot;</span>
+        <span class="n">opts</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">solver_opts</span> <span class="ow">or</span> <span class="p">{})</span>
+        <span class="n">conflict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_RESERVED_KEYS</span> <span class="o">&amp;</span> <span class="n">opts</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">conflict</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;solver_opts must not contain keys that are passed explicitly: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">conflict</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">opts</span></div>
+
+
+<div class="viewcode-block" id="EstimatorConfig">
+<a class="viewcode-back" href="../../api.html#tsgam.EstimatorConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">EstimatorConfig</span><span class="p">(</span><span class="n">SklearnConfigMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Main configuration for Estimator.</span>
+
+<span class="sd">    This config combines all component configurations (Fourier, exogenous, AR)</span>
+<span class="sd">    and solver settings into a single configuration object.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    multi_periodic_config : MultiPeriodicConfig or None</span>
+<span class="sd">        Configuration for multi-periodic Fourier basis functions. If None,</span>
+<span class="sd">        no time-based seasonal patterns are modeled.</span>
+<span class="sd">    exog_config : list of SplineConfig or LinearConfig, or None</span>
+<span class="sd">        List of configurations for exogenous variables. Each element corresponds</span>
+<span class="sd">        to one exogenous variable in X. Order must match column order in X.</span>
+<span class="sd">        If None, no exogenous variables are used.</span>
+<span class="sd">    interaction_pairs : list[tuple[int, int]] or None, default=None</span>
+<span class="sd">        Exact 2-way interaction pairs between exogenous terms. Each tuple refers</span>
+<span class="sd">        to positions in ``exog_config`` and the matching X column order. When</span>
+<span class="sd">        interactions are enabled, they use only each factor&#39;s current-index</span>
+<span class="sd">        response block (``lag=0``), even if the corresponding main effect also</span>
+<span class="sd">        includes additional lagged terms.</span>
+<span class="sd">    ar_config : ArConfig or None, default=None</span>
+<span class="sd">        Configuration for AR residual modeling. If None, no AR model is fitted.</span>
+<span class="sd">    trend_config : TrendConfig or None, default=None</span>
+<span class="sd">        Configuration for trend term. If None, no trend is fitted (equivalent to</span>
+<span class="sd">        trend_type=&#39;none&#39;). The trend is constant per period and can be linear,</span>
+<span class="sd">        nonlinear (monotonic decreasing), or none.</span>
+<span class="sd">    outlier_config : OutlierConfig or None, default=None</span>
+<span class="sd">        Configuration for outlier detector component. If None, no outlier detector</span>
+<span class="sd">        is fitted.</span>
+
+<span class="sd">        The outlier detector identifies anomalous periods (e.g., days) with sparse</span>
+<span class="sd">        multiplicative corrections. It uses L1 regularization to encourage sparsity,</span>
+<span class="sd">        meaning most periods will have no correction (≈0), while only outlier</span>
+<span class="sd">        periods will have non-zero corrections. The corrections are constant per</span>
+<span class="sd">        period and additive in log space (multiplicative in original scale).</span>
+
+<span class="sd">        See :class:`OutlierConfig` for detailed documentation and parameter</span>
+<span class="sd">        tuning guidelines.</span>
+<span class="sd">    solver_config : SolverConfig, default=SolverConfig()</span>
+<span class="sd">        Solver configuration for CVXPY optimization.</span>
+<span class="sd">    sort_index : bool, default=True</span>
+<span class="sd">        If True, sort the data by its datetime index before fit/predict so that</span>
+<span class="sd">        row order matches time order. If False, require the index to already be</span>
+<span class="sd">        sorted (chronologically); raise ValueError if not.</span>
+<span class="sd">    random_state : int, RandomState instance or None, default=None</span>
+<span class="sd">        Random seed/state for reproducible stochastic sampling. Integer seeds are</span>
+<span class="sd">        convenient for shared configs, while ``RandomState`` instances allow</span>
+<span class="sd">        callers to manage RNG state explicitly.</span>
+<span class="sd">    debug : bool, default=False</span>
+<span class="sd">        If True, stores additional debug attributes (e.g., _baseline_residuals_,</span>
+<span class="sd">        _B_running_view_) for inspection.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; multi_periodic = MultiPeriodicConfig(</span>
+<span class="sd">    ...     num_harmonics=[6, 4, 3],</span>
+<span class="sd">    ...     periods=[365.2425 * 24, 7 * 24, 24]</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; exog = [SplineConfig(n_knots=10, lags=[-1, 0, 1])]</span>
+<span class="sd">    &gt;&gt;&gt; ar = ArConfig(lags=[1])</span>
+<span class="sd">    &gt;&gt;&gt; config = EstimatorConfig(</span>
+<span class="sd">    ...     multi_periodic_config=multi_periodic,</span>
+<span class="sd">    ...     exog_config=exog,</span>
+<span class="sd">    ...     ar_config=ar</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">multi_periodic_config</span><span class="p">:</span> <span class="n">MultiPeriodicConfig</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">exog_config</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SplineConfig</span> <span class="o">|</span> <span class="n">LinearConfig</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">interaction_pairs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># ensure this works with linear and splines</span>
+    <span class="n">ar_config</span><span class="p">:</span> <span class="n">ArConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">trend_config</span><span class="p">:</span> <span class="n">TrendConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">outlier_config</span><span class="p">:</span> <span class="n">OutlierConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">solver_config</span><span class="p">:</span> <span class="n">SolverConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">SolverConfig</span><span class="p">)</span>
+    <span class="n">sort_index</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">random_state</span><span class="p">:</span> <span class="n">RandomState</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+
+<span class="n">PERIOD_HOURLY_DAILY</span> <span class="o">=</span> <span class="mi">24</span>
+<span class="n">PERIOD_HOURLY_WEEKLY</span> <span class="o">=</span> <span class="mi">24</span> <span class="o">*</span> <span class="mi">7</span>
+<span class="n">PERIOD_HOURLY_YEARLY</span> <span class="o">=</span> <span class="mi">24</span> <span class="o">*</span> <span class="mf">365.2425</span>
+
+<span class="n">PERIOD_DAILY_YEARLY</span> <span class="o">=</span> <span class="mf">365.2425</span>
+<span class="n">PERIOD_WEEKLY_YEARLY</span> <span class="o">=</span> <span class="mf">52.1775</span>
+
+<span class="n">PERIOD_MONTHLY_YEARLY</span> <span class="o">=</span> <span class="mi">12</span>
+<span class="n">PERIOD_QUARTERLY_YEARLY</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">PERIOD_YEARLY_YEARLY</span> <span class="o">=</span> <span class="mi">1</span>
+
+<span class="c1"># common periods: 1m, 5m, 15m, 60m/1h</span>
+<span class="c1"># todo(nimish): helper functions to set proper periods based on data&#39;s inferred frequency</span>
+<span class="c1"># infer frequency of data and then compute values for periods automatically</span>
+
+
+<div class="viewcode-block" id="get_recommended_periods">
+<a class="viewcode-back" href="../../api.html#tsgam.get_recommended_periods">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_recommended_periods</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">include_harmonics</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get recommended periods for Fourier basis based on data frequency.</span>
+
+<span class="sd">    This function infers the frequency of the input time series data and returns</span>
+<span class="sd">    recommended periods (in hours) that are appropriate for capturing seasonal</span>
+<span class="sd">    patterns at that time scale. Periods are calculated as multiples of the</span>
+<span class="sd">    data&#39;s base frequency, then converted to hours.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    X : pd.DataFrame</span>
+<span class="sd">        Input data with DatetimeIndex or first column containing datetime values.</span>
+<span class="sd">    include_harmonics : bool, default=False</span>
+<span class="sd">        If True, also returns recommended number of harmonics for each period.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    periods : list[float]</span>
+<span class="sd">        Recommended periods in hours. Periods are calculated as multiples of the</span>
+<span class="sd">        data&#39;s base frequency, then converted to hours. For example:</span>
+<span class="sd">        - For 5-minute data: multiples [1, 3, 12, 288, 2016] of 5-minute intervals</span>
+<span class="sd">        - For hourly data: multiples [24, 168, 8765.82] of 1-hour intervals</span>
+<span class="sd">        - For daily data: multiples [7, 365.2425] of 1-day intervals</span>
+
+<span class="sd">        The periods capture:</span>
+<span class="sd">        - Short-term patterns (small multiples: 1x, 3x, 5x, etc.)</span>
+<span class="sd">        - Daily patterns (multiples corresponding to ~24 hours)</span>
+<span class="sd">        - Weekly patterns (multiples corresponding to ~168 hours)</span>
+<span class="sd">        - Yearly patterns (multiples corresponding to ~8766 hours) when appropriate</span>
+<span class="sd">    num_harmonics : list[int], optional</span>
+<span class="sd">        Recommended number of harmonics for each period. Only returned if</span>
+<span class="sd">        include_harmonics=True. Higher harmonics capture more complex patterns.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import pandas as pd</span>
+<span class="sd">    &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">    &gt;&gt;&gt; from tsgam import get_recommended_periods</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # For 1-minute data: periods are multiples of 1-minute intervals</span>
+<span class="sd">    &gt;&gt;&gt; dates = pd.date_range(&#39;2020-01-01&#39;, periods=1000, freq=&#39;1min&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; X = pd.DataFrame({&#39;value&#39;: np.random.randn(1000)}, index=dates)</span>
+<span class="sd">    &gt;&gt;&gt; periods = get_recommended_periods(X)</span>
+<span class="sd">    &gt;&gt;&gt; # Returns periods like [1/60, 5/60, 15/60, 1, 24, 168] (hours)</span>
+<span class="sd">    &gt;&gt;&gt; # These correspond to 1, 5, 15, 60, 1440, 10080 minutes</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # For 5-minute data: periods are multiples of 5-minute intervals</span>
+<span class="sd">    &gt;&gt;&gt; dates = pd.date_range(&#39;2020-01-01&#39;, periods=1000, freq=&#39;5min&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; X = pd.DataFrame({&#39;value&#39;: np.random.randn(1000)}, index=dates)</span>
+<span class="sd">    &gt;&gt;&gt; periods = get_recommended_periods(X)</span>
+<span class="sd">    &gt;&gt;&gt; # Returns periods like [5/60, 15/60, 1, 24, 168] (hours)</span>
+<span class="sd">    &gt;&gt;&gt; # These correspond to 1, 3, 12, 288, 2016 five-minute intervals</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # For hourly data: periods are multiples of 1-hour intervals</span>
+<span class="sd">    &gt;&gt;&gt; dates = pd.date_range(&#39;2020-01-01&#39;, periods=1000, freq=&#39;h&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; X = pd.DataFrame({&#39;value&#39;: np.random.randn(1000)}, index=dates)</span>
+<span class="sd">    &gt;&gt;&gt; periods, harmonics = get_recommended_periods(X, include_harmonics=True)</span>
+<span class="sd">    &gt;&gt;&gt; # Returns periods like [24, 168, 8766] (hours)</span>
+<span class="sd">    &gt;&gt;&gt; # These correspond to 24, 168, 8766 hourly intervals</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Extract timestamps</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DatetimeIndex</span><span class="p">):</span>
+            <span class="n">timestamps</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">index</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">pd</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">is_datetime64_any_dtype</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]):</span>
+            <span class="n">timestamps</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DatetimeIndex</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;X must have DatetimeIndex or first column must be datetime. &quot;</span>
+                <span class="s2">&quot;Got DataFrame without datetime index or datetime column.&quot;</span>
+            <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;X must be a pandas DataFrame with DatetimeIndex or datetime column. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">timestamps</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Need at least 2 timestamps to infer frequency.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Infer frequency and calculate base time step</span>
+    <span class="n">inferred_freq</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">infer_freq</span><span class="p">(</span><span class="n">timestamps</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">inferred_freq</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Try to infer from differences</span>
+        <span class="n">diffs</span> <span class="o">=</span> <span class="n">timestamps</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">timestamps</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">median_diff</span> <span class="o">=</span> <span class="n">diffs</span><span class="o">.</span><span class="n">median</span><span class="p">()</span>
+        <span class="n">base_step_hours</span> <span class="o">=</span> <span class="n">median_diff</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mf">3600.0</span>
+        <span class="c1"># Convert to approximate frequency string</span>
+        <span class="k">if</span> <span class="n">median_diff</span> <span class="o">&lt;=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+            <span class="n">inferred_freq</span> <span class="o">=</span> <span class="s1">&#39;1min&#39;</span>
+        <span class="k">elif</span> <span class="n">median_diff</span> <span class="o">&lt;=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+            <span class="n">inferred_freq</span> <span class="o">=</span> <span class="s1">&#39;5min&#39;</span>
+        <span class="k">elif</span> <span class="n">median_diff</span> <span class="o">&lt;=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">15</span><span class="p">):</span>
+            <span class="n">inferred_freq</span> <span class="o">=</span> <span class="s1">&#39;15min&#39;</span>
+        <span class="k">elif</span> <span class="n">median_diff</span> <span class="o">&lt;=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+            <span class="n">inferred_freq</span> <span class="o">=</span> <span class="s1">&#39;h&#39;</span>
+            <span class="n">base_step_hours</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="k">elif</span> <span class="n">median_diff</span> <span class="o">&lt;=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+            <span class="n">inferred_freq</span> <span class="o">=</span> <span class="s1">&#39;D&#39;</span>
+            <span class="n">base_step_hours</span> <span class="o">=</span> <span class="mf">24.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Could not infer frequency from timestamps. &quot;</span>
+                <span class="s2">&quot;Timestamps must be regularly spaced.&quot;</span>
+            <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Calculate base step from frequency string using pd.to_timedelta</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">freq_td_str</span> <span class="o">=</span> <span class="n">inferred_freq</span> <span class="k">if</span> <span class="n">inferred_freq</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;1</span><span class="si">{</span><span class="n">inferred_freq</span><span class="si">}</span><span class="s1">&#39;</span>
+            <span class="n">base_step_hours</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_timedelta</span><span class="p">(</span><span class="n">_to_pandas_timedelta_frequency</span><span class="p">(</span><span class="n">freq_td_str</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mf">3600.0</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">):</span>
+            <span class="n">diffs</span> <span class="o">=</span> <span class="n">timestamps</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">timestamps</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">base_step_hours</span> <span class="o">=</span> <span class="n">diffs</span><span class="o">.</span><span class="n">median</span><span class="p">()</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mf">3600.0</span>
+
+    <span class="c1"># Determine periods as multiples of base frequency, then convert to hours.</span>
+    <span class="c1"># Use base_step_hours ranges to select appropriate period multiples,</span>
+    <span class="c1"># independent of the particular frequency string format pandas returns.</span>
+    <span class="n">periods</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="n">base_step_hours</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">60</span><span class="p">:</span>  <span class="c1"># Sub-minute frequency</span>
+        <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="mi">10080</span><span class="p">]</span>
+        <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+        <span class="n">periods</span> <span class="o">=</span> <span class="p">[</span><span class="n">mult</span> <span class="o">*</span> <span class="n">base_step_hours</span> <span class="k">for</span> <span class="n">mult</span> <span class="ow">in</span> <span class="n">period_multiples</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">base_step_hours</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># Sub-hourly (minute-level) frequency</span>
+        <span class="n">minutes</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">base_step_hours</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">minutes</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="mi">10080</span><span class="p">]</span>
+            <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">minutes</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">288</span><span class="p">,</span> <span class="mi">2016</span><span class="p">]</span>
+            <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">minutes</span> <span class="o">==</span> <span class="mi">15</span><span class="p">:</span>
+            <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">96</span><span class="p">,</span> <span class="mi">672</span><span class="p">]</span>
+            <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">periods_per_day</span> <span class="o">=</span> <span class="p">(</span><span class="mi">24</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span> <span class="o">/</span> <span class="n">minutes</span>
+            <span class="n">periods_per_week</span> <span class="o">=</span> <span class="p">(</span><span class="mi">7</span> <span class="o">*</span> <span class="mi">24</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span> <span class="o">/</span> <span class="n">minutes</span>
+            <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">periods_per_day</span> <span class="o">/</span> <span class="mi">24</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">periods_per_day</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">periods_per_week</span><span class="p">)]</span>
+            <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+        <span class="n">periods</span> <span class="o">=</span> <span class="p">[</span><span class="n">mult</span> <span class="o">*</span> <span class="n">base_step_hours</span> <span class="k">for</span> <span class="n">mult</span> <span class="ow">in</span> <span class="n">period_multiples</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">base_step_hours</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.01</span><span class="p">:</span>  <span class="c1"># Hourly</span>
+        <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="mi">24</span><span class="p">,</span> <span class="mi">168</span><span class="p">,</span> <span class="n">PERIOD_HOURLY_YEARLY</span><span class="p">]</span>
+        <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+        <span class="n">periods</span> <span class="o">=</span> <span class="p">[</span><span class="n">mult</span> <span class="o">*</span> <span class="n">base_step_hours</span> <span class="k">for</span> <span class="n">mult</span> <span class="ow">in</span> <span class="n">period_multiples</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">base_step_hours</span> <span class="o">-</span> <span class="mf">24.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.01</span><span class="p">:</span>  <span class="c1"># Daily</span>
+        <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="n">PERIOD_DAILY_YEARLY</span><span class="p">]</span>
+        <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+        <span class="n">periods</span> <span class="o">=</span> <span class="p">[</span><span class="n">mult</span> <span class="o">*</span> <span class="n">base_step_hours</span> <span class="k">for</span> <span class="n">mult</span> <span class="ow">in</span> <span class="n">period_multiples</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">base_step_hours</span> <span class="o">-</span> <span class="mf">168.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">:</span>  <span class="c1"># Weekly</span>
+        <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="n">PERIOD_WEEKLY_YEARLY</span><span class="p">]</span>
+        <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+        <span class="n">periods</span> <span class="o">=</span> <span class="p">[</span><span class="n">mult</span> <span class="o">*</span> <span class="n">base_step_hours</span> <span class="k">for</span> <span class="n">mult</span> <span class="ow">in</span> <span class="n">period_multiples</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Unknown frequency - provide generic recommendations</span>
+        <span class="c1"># Try to estimate from median time difference</span>
+        <span class="n">diffs</span> <span class="o">=</span> <span class="n">timestamps</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">timestamps</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">median_diff_hours</span> <span class="o">=</span> <span class="n">diffs</span><span class="o">.</span><span class="n">median</span><span class="p">()</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mf">3600.0</span>
+
+        <span class="k">if</span> <span class="n">median_diff_hours</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="o">/</span><span class="mi">60</span><span class="p">:</span>  <span class="c1"># Sub-minute frequency</span>
+            <span class="c1"># Use multiples appropriate for minute-level data</span>
+            <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">1440</span><span class="p">,</span> <span class="mi">10080</span><span class="p">]</span>
+            <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+            <span class="n">periods</span> <span class="o">=</span> <span class="p">[</span><span class="n">mult</span> <span class="o">*</span> <span class="n">base_step_hours</span> <span class="k">for</span> <span class="n">mult</span> <span class="ow">in</span> <span class="n">period_multiples</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">median_diff_hours</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># Sub-hourly frequency</span>
+            <span class="c1"># Calculate multiples for daily and weekly patterns</span>
+            <span class="n">periods_per_day</span> <span class="o">=</span> <span class="mf">24.0</span> <span class="o">/</span> <span class="n">base_step_hours</span>
+            <span class="n">periods_per_week</span> <span class="o">=</span> <span class="mf">168.0</span> <span class="o">/</span> <span class="n">base_step_hours</span>
+            <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">periods_per_day</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">periods_per_week</span><span class="p">)]</span>
+            <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+            <span class="n">periods</span> <span class="o">=</span> <span class="p">[</span><span class="n">mult</span> <span class="o">*</span> <span class="n">base_step_hours</span> <span class="k">for</span> <span class="n">mult</span> <span class="ow">in</span> <span class="n">period_multiples</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">median_diff_hours</span> <span class="o">&lt;</span> <span class="mi">24</span><span class="p">:</span>  <span class="c1"># Sub-daily frequency</span>
+            <span class="c1"># Calculate multiples for daily, weekly, and yearly patterns</span>
+            <span class="n">periods_per_day</span> <span class="o">=</span> <span class="mf">24.0</span> <span class="o">/</span> <span class="n">base_step_hours</span>
+            <span class="n">periods_per_week</span> <span class="o">=</span> <span class="mf">168.0</span> <span class="o">/</span> <span class="n">base_step_hours</span>
+            <span class="n">periods_per_year</span> <span class="o">=</span> <span class="mf">365.2425</span> <span class="o">*</span> <span class="mf">24.0</span> <span class="o">/</span> <span class="n">base_step_hours</span>
+            <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">periods_per_day</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">periods_per_week</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">periods_per_year</span><span class="p">)]</span>
+            <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+            <span class="n">periods</span> <span class="o">=</span> <span class="p">[</span><span class="n">mult</span> <span class="o">*</span> <span class="n">base_step_hours</span> <span class="k">for</span> <span class="n">mult</span> <span class="ow">in</span> <span class="n">period_multiples</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># Daily or longer frequency</span>
+            <span class="c1"># Calculate multiples for weekly and yearly patterns</span>
+            <span class="n">periods_per_week</span> <span class="o">=</span> <span class="mf">7.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">base_step_hours</span> <span class="o">/</span> <span class="mf">24.0</span><span class="p">)</span>
+            <span class="n">periods_per_year</span> <span class="o">=</span> <span class="mf">365.2425</span> <span class="o">/</span> <span class="p">(</span><span class="n">base_step_hours</span> <span class="o">/</span> <span class="mf">24.0</span><span class="p">)</span>
+            <span class="n">period_multiples</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">periods_per_week</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">periods_per_year</span><span class="p">)]</span>
+            <span class="n">num_harmonics</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+            <span class="n">periods</span> <span class="o">=</span> <span class="p">[</span><span class="n">mult</span> <span class="o">*</span> <span class="n">base_step_hours</span> <span class="k">for</span> <span class="n">mult</span> <span class="ow">in</span> <span class="n">period_multiples</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">include_harmonics</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">periods</span><span class="p">,</span> <span class="n">num_harmonics</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">periods</span></div>
+
+
+
+<div class="viewcode-block" id="Estimator">
+<a class="viewcode-back" href="../../api.html#tsgam.Estimator">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Estimator</span><span class="p">(</span><span class="n">RegressorMixin</span><span class="p">,</span> <span class="n">BaseEstimator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Time Series Generalized Additive Model (TSGAM) Estimator.</span>
+
+<span class="sd">    This estimator fits a GAM model for time series forecasting that combines:</span>
+
+<span class="sd">    - Multi-periodic Fourier basis functions for seasonal patterns</span>
+<span class="sd">    - Cubic spline or linear basis functions for exogenous variables with lead/lag</span>
+<span class="sd">    - Optional trend term (constant per period, linear or nonlinear)</span>
+<span class="sd">    - Optional outlier detector (sparse multiplicative corrections per period)</span>
+<span class="sd">    - Optional autoregressive (AR) modeling of residuals</span>
+
+<span class="sd">    The model composes its structural components with SignalDecomp and uses</span>
+<span class="sd">    CVXPY to fit coefficients.</span>
+<span class="sd">    While the model can work with targets in any scale, log transformation is</span>
+<span class="sd">    commonly used when components are multiplicative rather than additive.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config : EstimatorConfig</span>
+<span class="sd">        Configuration object containing all model settings.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    freq_ : str</span>
+<span class="sd">        Inferred frequency of the time series (e.g., &#39;h&#39; for hourly).</span>
+<span class="sd">    time_reference_ : Timestamp</span>
+<span class="sd">        Reference timestamp used for phase alignment (first timestamp from fit).</span>
+<span class="sd">    time_indices_ : ndarray</span>
+<span class="sd">        Numeric time indices (hours since reference) used during fit.</span>
+<span class="sd">    decomposition_ : dict</span>
+<span class="sd">        Native SignalDecomp solve result. Fitted components and coefficients are</span>
+<span class="sd">        available by role under ``decomposition_[&quot;values&quot;]``.</span>
+<span class="sd">    variables_ : dict</span>
+<span class="sd">        Historical coefficient names and shapes as CVXPY expression views.</span>
+<span class="sd">        Supports inspection through ``.value``; prediction uses native results.</span>
+<span class="sd">    output_ : dict</span>
+<span class="sd">        Alias of ``decomposition_`` (no separate result schema).</span>
+<span class="sd">    problem_ : cvxpy.Problem</span>
+<span class="sd">        The native optimization problem.</span>
+<span class="sd">    exog_knots_ : list</span>
+<span class="sd">        List of knot locations for spline exogenous variables (auto-computed</span>
+<span class="sd">        during fit, reused during predict).</span>
+<span class="sd">    trend_period_hours_ : float or None</span>
+<span class="sd">        Period length in hours used for trend (if trend_config provided).</span>
+<span class="sd">    outlier_period_hours_ : float or None</span>
+<span class="sd">        Period length in hours used for outlier detector (if outlier_config provided).</span>
+<span class="sd">    ar_coef_ : ndarray or None</span>
+<span class="sd">        Fitted AR coefficients (if ar_config provided and model converged).</span>
+<span class="sd">    ar_intercept_ : float or None</span>
+<span class="sd">        Fitted AR intercept (if ar_config provided and model converged).</span>
+<span class="sd">    ar_noise_loc_ : float or None</span>
+<span class="sd">        Location parameter of Laplace noise distribution for AR model.</span>
+<span class="sd">    ar_noise_scale_ : float or None</span>
+<span class="sd">        Scale parameter of Laplace noise distribution for AR model.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import pandas as pd</span>
+<span class="sd">    &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">    &gt;&gt;&gt; from tsgam import (</span>
+<span class="sd">    ...     Estimator, EstimatorConfig,</span>
+<span class="sd">    ...     MultiPeriodicConfig, SplineConfig, OutlierConfig</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Create configuration with outlier detector</span>
+<span class="sd">    &gt;&gt;&gt; multi_periodic = MultiPeriodicConfig(</span>
+<span class="sd">    ...     num_harmonics=[6, 4, 3],</span>
+<span class="sd">    ...     periods=[365.2425 * 24, 7 * 24, 24]  # yearly, weekly, daily</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; exog_config = [SplineConfig(n_knots=10, lags=[-1, 0, 1])]</span>
+<span class="sd">    &gt;&gt;&gt; outlier_config = OutlierConfig(reg_weight=0.002)  # Daily outliers</span>
+<span class="sd">    &gt;&gt;&gt; config = EstimatorConfig(</span>
+<span class="sd">    ...     multi_periodic_config=multi_periodic,</span>
+<span class="sd">    ...     exog_config=exog_config,</span>
+<span class="sd">    ...     outlier_config=outlier_config</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Create estimator</span>
+<span class="sd">    &gt;&gt;&gt; estimator = Estimator(config=config)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Prepare data (X must be DataFrame with DatetimeIndex)</span>
+<span class="sd">    &gt;&gt;&gt; dates = pd.date_range(&#39;2020-01-01&#39;, periods=1000, freq=&#39;h&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; X = pd.DataFrame({&#39;temp&#39;: np.random.randn(1000)}, index=dates)</span>
+<span class="sd">    &gt;&gt;&gt; y = np.log(np.random.rand(1000) * 100 + 50)  # log-transform recommended</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Fit model</span>
+<span class="sd">    &gt;&gt;&gt; estimator.fit(X, y)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Access detected outliers</span>
+<span class="sd">    &gt;&gt;&gt; outlier_values = estimator.decomposition_[&quot;values&quot;][&quot;outlier_group_values&quot;]</span>
+<span class="sd">    &gt;&gt;&gt; print(f&quot;Detected {np.sum(np.abs(outlier_values) &gt; 0.1)} outlier days&quot;)</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # Make predictions</span>
+<span class="sd">    &gt;&gt;&gt; X_pred = pd.DataFrame({&#39;temp&#39;: np.random.randn(100)},</span>
+<span class="sd">    ...                       index=pd.date_range(&#39;2021-01-01&#39;, periods=100, freq=&#39;h&#39;))</span>
+<span class="sd">    &gt;&gt;&gt; predictions = estimator.predict(X_pred)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">EstimatorConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+
+    <span class="c1"># Historical response-plot helper; implementation belongs to SignalDecomp.</span>
+    <span class="n">_make_H</span> <span class="o">=</span> <span class="nb">staticmethod</span><span class="p">(</span><span class="n">make_spline_basis</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Estimator.fit">
+<a class="viewcode-back" href="../../api.html#tsgam.Estimator.fit">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">sample_weight</span><span class="p">:</span> <span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Estimator&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Fit the TSGAM model to training data.</span>
+
+<span class="sd">        This method:</span>
+<span class="sd">        1. Extracts and validates timestamps from X</span>
+<span class="sd">        2. Builds Fourier basis matrices for seasonal patterns</span>
+<span class="sd">        3. Builds spline/linear basis matrices for exogenous variables</span>
+<span class="sd">        4. Solves the regularized optimization problem</span>
+<span class="sd">        5. Optionally fits an AR model on residuals</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : DataFrame</span>
+<span class="sd">            Training data with exogenous variables. Must have DatetimeIndex or</span>
+<span class="sd">            first column must be datetime. Remaining columns are exogenous variables</span>
+<span class="sd">            (e.g., temperature). Column order must match exog_config order.</span>
+<span class="sd">        y : array-like of shape (n_samples,)</span>
+<span class="sd">            Target values. Can be in any scale, though log transformation is</span>
+<span class="sd">            commonly used for multiplicative components. Must not contain NaN.</span>
+<span class="sd">        sample_weight : array-like of shape (n_samples,), default=None</span>
+<span class="sd">            Optional sample weights for weighted least squares. Must be non-negative</span>
+<span class="sd">            and match the length of y. If None, all samples are weighted equally (ones).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        self : Estimator</span>
+<span class="sd">            Returns self for method chaining.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If X doesn&#39;t have proper timestamp index/column, if frequency doesn&#39;t</span>
+<span class="sd">            match, or if insufficient samples for configured lags.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; import pandas as pd</span>
+<span class="sd">        &gt;&gt;&gt; dates = pd.date_range(&#39;2020-01-01&#39;, periods=1000, freq=&#39;h&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; X = pd.DataFrame({&#39;temp&#39;: np.random.randn(1000)}, index=dates)</span>
+<span class="sd">        &gt;&gt;&gt; y = np.log(np.random.rand(1000) * 100 + 50)</span>
+<span class="sd">        &gt;&gt;&gt; estimator.fit(X, y)</span>
+<span class="sd">        Estimator(...)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Validate sample_weight shape before sort (must match X/y length)</span>
+        <span class="k">if</span> <span class="n">sample_weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sample_weight</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">w</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">w</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;sample_weight must have shape (n_samples,) = (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="si">}</span><span class="s2">,), got </span><span class="si">{</span><span class="n">w</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">sample_weight</span> <span class="o">=</span> <span class="n">sort_fit_inputs</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="n">sort_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">sort_index</span><span class="p">,</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span>
+            <span class="n">sample_weight</span><span class="o">=</span><span class="n">sample_weight</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_features_in_</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">column</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">X</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">feature_names_in_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+        <span class="n">timestamps</span> <span class="o">=</span> <span class="n">_extract_timestamps</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">freq_</span> <span class="o">=</span> <span class="n">infer_fit_frequency</span><span class="p">(</span><span class="n">timestamps</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_reference_</span> <span class="o">=</span> <span class="n">timestamps</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">design</span> <span class="o">=</span> <span class="n">build_tsgam_design</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="n">y</span><span class="p">,</span>
+            <span class="n">sample_weight</span><span class="p">,</span>
+            <span class="n">reference</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_reference_</span><span class="p">,</span>
+            <span class="n">freq</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">freq_</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="n">design</span><span class="o">.</span><span class="n">y</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">assert</span> <span class="n">design</span><span class="o">.</span><span class="n">sample_weight</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">time_indices</span> <span class="o">=</span> <span class="n">design</span><span class="o">.</span><span class="n">time_indices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_indices_</span> <span class="o">=</span> <span class="n">time_indices</span>
+
+        <span class="n">trend_period</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">trend_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">trend_config</span><span class="o">.</span><span class="n">trend_type</span> <span class="o">!=</span> <span class="n">TrendType</span><span class="o">.</span><span class="n">NONE</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">trend_config</span><span class="o">.</span><span class="n">__post_init__</span><span class="p">()</span>
+            <span class="n">trend_period</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">trend_config</span><span class="o">.</span><span class="n">grouping</span> <span class="ow">or</span> <span class="mf">24.0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">trend_period_hours_</span> <span class="o">=</span> <span class="n">trend_period</span>
+
+        <span class="n">outlier_period</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">outlier_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">outlier_period</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">outlier_config</span><span class="o">.</span><span class="n">period_hours</span> <span class="ow">or</span> <span class="mf">24.0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">outlier_period_hours_</span> <span class="o">=</span> <span class="n">outlier_period</span>
+
+        <span class="n">built</span> <span class="o">=</span> <span class="n">build_single_output_decomposition</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+            <span class="n">design</span><span class="p">,</span>
+            <span class="n">trend_period</span><span class="o">=</span><span class="n">trend_period</span><span class="p">,</span>
+            <span class="n">outlier_period</span><span class="o">=</span><span class="n">outlier_period</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">decomposition</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span>
+            <span class="n">built</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">solver_config</span><span class="o">.</span><span class="n">solver</span><span class="p">,</span> <span class="n">verify_dcp</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">solver_config</span><span class="o">.</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">warm_start</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">solver_config</span><span class="o">.</span><span class="n">warm_start</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">solver_config</span><span class="o">.</span><span class="n">_solve_kwargs</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">decomposition_</span> <span class="o">=</span> <span class="n">decomposition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_</span> <span class="o">=</span> <span class="n">decomposition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">problem_</span> <span class="o">=</span> <span class="n">decomposition</span><span class="p">[</span><span class="s2">&quot;problem&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">variables_</span> <span class="o">=</span> <span class="n">legacy_variable_views</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">decomposition</span><span class="p">[</span><span class="s2">&quot;variables&quot;</span><span class="p">])</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ndarray</span> <span class="o">|</span> <span class="nb">float</span><span class="p">],</span> <span class="n">decomposition</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">])</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]],</span> <span class="n">decomposition</span><span class="p">[</span><span class="s2">&quot;component_metadata&quot;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exog_knots_</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">metadata</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;exog_</span><span class="si">{</span><span class="n">ix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">][</span><span class="s2">&quot;knots&quot;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exog_cfg</span><span class="p">,</span> <span class="n">SplineConfig</span><span class="p">)</span>
+            <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">ix</span><span class="p">,</span> <span class="n">exog_cfg</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">exog_config</span> <span class="ow">or</span> <span class="p">[])</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Check that constant term is valid</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;intercept_group_values&quot;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Constant term is NaN after optimization. Status: </span><span class="si">{</span><span class="n">decomposition</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Fit AR model if configured</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ar_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fit_ar_model</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_fit_ar_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fit the AR model on the SignalDecomp residual.&quot;&quot;&quot;</span>
+        <span class="c1"># Compute residuals on valid samples</span>
+        <span class="n">fit_mask</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">ndarray</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">decomposition_</span><span class="p">[</span><span class="s2">&quot;fit_mask&quot;</span><span class="p">])</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ndarray</span> <span class="o">|</span> <span class="nb">float</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">decomposition_</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">])</span>
+        <span class="n">residuals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">fit_mask</span><span class="p">,</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;residual&quot;</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+
+        <span class="c1"># Build AR design matrix</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ar_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">ar_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ar_config</span>
+        <span class="n">ar_lags</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ar_config</span><span class="o">.</span><span class="n">lags</span><span class="p">)</span>
+        <span class="n">basis</span> <span class="o">=</span> <span class="n">make_offset_basis</span><span class="p">(</span><span class="n">residuals</span><span class="p">,</span> <span class="n">offsets</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">ar_config</span><span class="o">.</span><span class="n">lags</span><span class="p">)))</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">design</span>
+        <span class="n">ar_valid_mask</span> <span class="o">=</span> <span class="n">fit_mask</span> <span class="o">&amp;</span> <span class="n">basis</span><span class="o">.</span><span class="n">valid_mask</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">debug</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_B_running_view_</span> <span class="o">=</span> <span class="n">B</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ar_valid_mask_</span> <span class="o">=</span> <span class="n">ar_valid_mask</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_baseline_residuals_</span> <span class="o">=</span> <span class="n">residuals</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">ar_valid_mask</span><span class="p">):</span>
+            <span class="c1"># Not enough data for AR model</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ar_coef_</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ar_intercept_</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ar_noise_loc_</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ar_noise_scale_</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Fit AR model using CVXPY</span>
+        <span class="n">theta</span> <span class="o">=</span> <span class="n">cvxpy</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">ar_lags</span><span class="p">)</span>
+        <span class="n">constant</span> <span class="o">=</span> <span class="n">cvxpy</span><span class="o">.</span><span class="n">Variable</span><span class="p">()</span>
+
+        <span class="n">ar_problem</span> <span class="o">=</span> <span class="n">cvxpy</span><span class="o">.</span><span class="n">Problem</span><span class="p">(</span>
+            <span class="n">cvxpy</span><span class="o">.</span><span class="n">Minimize</span><span class="p">(</span><span class="n">cvxpy</span><span class="o">.</span><span class="n">sum_squares</span><span class="p">(</span><span class="n">residuals</span><span class="p">[</span><span class="n">ar_valid_mask</span><span class="p">]</span> <span class="o">-</span> <span class="n">B</span><span class="p">[</span><span class="n">ar_valid_mask</span><span class="p">]</span> <span class="o">@</span> <span class="n">theta</span> <span class="o">-</span> <span class="n">constant</span><span class="p">)),</span>
+            <span class="p">[</span><span class="n">cvxpy</span><span class="o">.</span><span class="n">norm1</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">ar_config</span><span class="o">.</span><span class="n">l1_constraint</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">ar_problem</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span>
+            <span class="n">solver</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">solver_config</span><span class="o">.</span><span class="n">solver</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">solver_config</span><span class="o">.</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">warm_start</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">solver_config</span><span class="o">.</span><span class="n">warm_start</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">solver_config</span><span class="o">.</span><span class="n">_solve_kwargs</span><span class="p">(),</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">ar_problem</span><span class="o">.</span><span class="n">status</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;optimal&quot;</span><span class="p">,</span> <span class="s2">&quot;optimal_inaccurate&quot;</span><span class="p">]:</span>
+            <span class="k">assert</span> <span class="n">theta</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;AR coefficients should be set&quot;</span>
+            <span class="k">assert</span> <span class="n">constant</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;AR intercept should be set&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ar_coef_</span> <span class="o">=</span> <span class="n">theta</span><span class="o">.</span><span class="n">value</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ar_intercept_</span> <span class="o">=</span> <span class="n">constant</span><span class="o">.</span><span class="n">value</span>
+
+            <span class="c1"># Fit Laplace distribution to AR model residuals</span>
+            <span class="n">ar_model</span> <span class="o">=</span> <span class="n">B</span><span class="p">[</span><span class="n">ar_valid_mask</span><span class="p">]</span> <span class="o">@</span> <span class="n">theta</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="n">constant</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">ar_residuals</span> <span class="o">=</span> <span class="n">residuals</span><span class="p">[</span><span class="n">ar_valid_mask</span><span class="p">]</span> <span class="o">-</span> <span class="n">ar_model</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ar_noise_loc_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ar_noise_scale_</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">laplace</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">ar_residuals</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># AR model failed to solve</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ar_coef_</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ar_intercept_</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ar_noise_loc_</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ar_noise_scale_</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Estimator.score">
+<a class="viewcode-back" href="../../api.html#tsgam.Estimator.score">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">score</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">sample_weight</span><span class="p">:</span> <span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return R² on supported prediction rows, retaining NaNs in predict().&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">make_supported_scorer</span><span class="p">(</span><span class="s2">&quot;r2&quot;</span><span class="p">)(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">sample_weight</span><span class="o">=</span><span class="n">sample_weight</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Estimator.predict">
+<a class="viewcode-back" href="../../api.html#tsgam.Estimator.predict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+                <span class="n">remove_periodic</span> <span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">remove_exogenous</span> <span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">remove_trend</span> <span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Predict target values for new data.</span>
+
+<span class="sd">        Predictions are made using the fitted model components:</span>
+<span class="sd">        - Constant term</span>
+<span class="sd">        - Fourier basis (seasonal patterns)</span>
+<span class="sd">        - Exogenous variable basis (splines/linear)</span>
+<span class="sd">        - Trend term (if configured)</span>
+<span class="sd">        - AR model is NOT included in predictions (use sample() for AR noise)</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : DataFrame</span>
+<span class="sd">            Input data with exogenous variables. Must have DatetimeIndex or</span>
+<span class="sd">            first column must be datetime. Must have same frequency as training data.</span>
+<span class="sd">            Column order must match training data. Rows lacking source history</span>
+<span class="sd">            for an exogenous offset return NaN; include source padding to predict them.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        predictions : ndarray of shape (n_samples,)</span>
+<span class="sd">            Predicted values in the same scale as training data. If training data</span>
+<span class="sd">            was log-transformed, predictions will be in log space and can be</span>
+<span class="sd">            converted back using np.exp(predictions).</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If model not fitted, if X doesn&#39;t have proper timestamp index/column,</span>
+<span class="sd">            if frequency doesn&#39;t match training data, or if model didn&#39;t converge.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; # After fitting</span>
+<span class="sd">        &gt;&gt;&gt; X_pred = pd.DataFrame({&#39;temp&#39;: np.random.randn(100)},</span>
+<span class="sd">        ...                       index=pd.date_range(&#39;2021-01-01&#39;, periods=100, freq=&#39;h&#39;))</span>
+<span class="sd">        &gt;&gt;&gt; predictions = estimator.predict(X_pred)</span>
+<span class="sd">        &gt;&gt;&gt; # Convert back to original scale</span>
+<span class="sd">        &gt;&gt;&gt; predictions_original = np.exp(predictions)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">check_is_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;decomposition_&#39;</span><span class="p">,</span> <span class="s1">&#39;time_reference_&#39;</span><span class="p">,</span> <span class="s1">&#39;freq_&#39;</span><span class="p">])</span>
+
+        <span class="n">X</span> <span class="o">=</span> <span class="n">sort_predict_X</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">sort_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">sort_index</span><span class="p">)</span>
+        <span class="n">timestamps</span> <span class="o">=</span> <span class="n">_extract_timestamps</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">validate_predict_frequency</span><span class="p">(</span><span class="n">timestamps</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">freq_</span><span class="p">)</span>
+        <span class="n">design</span> <span class="o">=</span> <span class="n">build_tsgam_design</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">sample_weight</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">knots_by_exog</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">exog_knots_</span><span class="p">,</span>
+            <span class="n">reference</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_reference_</span><span class="p">,</span>
+            <span class="n">freq</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">freq_</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">time_indices</span> <span class="o">=</span> <span class="n">design</span><span class="o">.</span><span class="n">time_indices</span>
+        <span class="n">predictions</span> <span class="o">=</span> <span class="n">evaluate_single_output_prediction</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+            <span class="n">design</span><span class="p">,</span>
+            <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ndarray</span> <span class="o">|</span> <span class="nb">float</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">decomposition_</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">]),</span>
+            <span class="n">remove_periodic</span><span class="o">=</span><span class="n">remove_periodic</span><span class="p">,</span>
+            <span class="n">remove_exogenous</span><span class="o">=</span><span class="n">remove_exogenous</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">values</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ndarray</span> <span class="o">|</span> <span class="nb">float</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">decomposition_</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="n">remove_trend</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">trend_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">trend_config</span><span class="o">.</span><span class="n">trend_type</span> <span class="o">!=</span> <span class="n">TrendType</span><span class="o">.</span><span class="n">NONE</span>
+        <span class="p">):</span>
+            <span class="n">trend</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;trend_group_values&quot;</span><span class="p">])</span>
+            <span class="n">period_indices</span> <span class="o">=</span> <span class="p">(</span><span class="n">time_indices</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">trend_period_hours_</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+            <span class="n">valid</span> <span class="o">=</span> <span class="n">period_indices</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+            <span class="n">selected</span> <span class="o">=</span> <span class="n">period_indices</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
+            <span class="n">contribution</span> <span class="o">=</span> <span class="n">trend</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">selected</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">trend</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">beyond</span> <span class="o">=</span> <span class="n">selected</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">trend</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">trend_config</span><span class="o">.</span><span class="n">trend_type</span> <span class="o">==</span> <span class="n">TrendType</span><span class="o">.</span><span class="n">LINEAR</span><span class="p">:</span>
+                <span class="n">contribution</span><span class="p">[</span><span class="n">beyond</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;trend_slope&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span>
+                    <span class="n">selected</span><span class="p">[</span><span class="n">beyond</span><span class="p">]</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">trend</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="p">)</span>
+            <span class="n">predictions</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span> <span class="o">+=</span> <span class="n">contribution</span>
+
+        <span class="c1"># Final check for NaN in predictions</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">design</span><span class="o">.</span><span class="n">valid_mask</span><span class="p">):</span>
+            <span class="n">nan_count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">predictions</span><span class="p">))</span>
+            <span class="n">nan_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">predictions</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Predictions contain </span><span class="si">{</span><span class="n">nan_count</span><span class="si">}</span><span class="s2"> NaN values out of </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;First few NaN indices: </span><span class="si">{</span><span class="n">nan_indices</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">nan_indices</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">[]</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Constant value: </span><span class="si">{</span><span class="n">cast</span><span class="p">(</span><span class="n">ndarray</span><span class="p">,</span><span class="w"> </span><span class="n">values</span><span class="p">[</span><span class="s1">&#39;intercept_group_values&#39;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Time indices range: [</span><span class="si">{</span><span class="n">time_indices</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">time_indices</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">]&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">predictions</span></div>
+
+
+<div class="viewcode-block" id="Estimator.sample">
+<a class="viewcode-back" href="../../api.html#tsgam.Estimator.sample">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">random_state</span><span class="p">:</span> <span class="n">RandomState</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate sample predictions with AR noise rollout.</span>
+
+<span class="sd">        This method generates multiple sample paths by adding noise to baseline</span>
+<span class="sd">        predictions. If an AR model was fitted, it uses AR noise rollout to generate</span>
+<span class="sd">        temporally correlated noise. Otherwise, it adds independent Laplace noise.</span>
+
+<span class="sd">        The AR noise rollout:</span>
+<span class="sd">        1. Initializes with random noise from fitted Laplace distribution</span>
+<span class="sd">        2. Generates AR noise using: noise[t] = AR_coef @ noise[t-lags] + intercept + new_noise</span>
+<span class="sd">        3. Adds burn-in period before using samples</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : DataFrame</span>
+<span class="sd">            Input data with timestamps. Same format as predict().</span>
+<span class="sd">        n_samples : int, default=1</span>
+<span class="sd">            Number of sample paths to generate.</span>
+<span class="sd">        random_state : int, RandomState instance or None, default=None</span>
+<span class="sd">            Random state for reproducible results. If None, uses estimator&#39;s</span>
+<span class="sd">            random_state from config.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        samples : ndarray of shape (n_samples, n_pred_samples)</span>
+<span class="sd">            Sample predictions in the same scale as training data. Each row is one</span>
+<span class="sd">            sample path. If AR model is fitted, includes temporally correlated AR</span>
+<span class="sd">            noise. Otherwise, adds independent small Laplace noise (scale=0.1).</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If model not fitted or if AR model was configured but didn&#39;t converge.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; # Generate 100 sample paths</span>
+<span class="sd">        &gt;&gt;&gt; samples = estimator.sample(X_pred, n_samples=100, random_state=42)</span>
+<span class="sd">        &gt;&gt;&gt; # samples shape: (100, n_pred_samples)</span>
+<span class="sd">        &gt;&gt;&gt; # If data was log-transformed, convert back to original scale</span>
+<span class="sd">        &gt;&gt;&gt; samples_original = np.exp(samples)</span>
+<span class="sd">        &gt;&gt;&gt; # Compute percentiles</span>
+<span class="sd">        &gt;&gt;&gt; p5 = np.percentile(samples_original, 5, axis=0)</span>
+<span class="sd">        &gt;&gt;&gt; p95 = np.percentile(samples_original, 95, axis=0)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">check_is_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;decomposition_&#39;</span><span class="p">,</span> <span class="s1">&#39;time_reference_&#39;</span><span class="p">,</span> <span class="s1">&#39;freq_&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">random_state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">random_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">random_state</span>
+        <span class="n">random_state</span> <span class="o">=</span> <span class="n">check_random_state</span><span class="p">(</span><span class="n">random_state</span><span class="p">)</span>
+
+        <span class="c1"># Get baseline predictions</span>
+        <span class="n">baseline_pred</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ar_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;ar_coef_&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ar_coef_</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_ar_samples</span><span class="p">(</span><span class="n">baseline_pred</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">,</span> <span class="n">random_state</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># No AR model, just add small noise</span>
+            <span class="n">noise</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">laplace</span><span class="o">.</span><span class="n">rvs</span><span class="p">(</span>
+                <span class="n">loc</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">baseline_pred</span><span class="p">)),</span>
+                <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span>
+            <span class="p">)</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">baseline_pred</span> <span class="o">+</span> <span class="n">noise</span>
+
+        <span class="k">return</span> <span class="n">samples</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_ar_samples</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">baseline_pred</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">random_state</span><span class="p">:</span> <span class="n">RandomState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate samples with AR noise rollout using residuals.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        baseline_pred : ndarray</span>
+<span class="sd">            Baseline predictions (same scale as training data).</span>
+<span class="sd">        n_samples : int</span>
+<span class="sd">            Number of samples to generate.</span>
+<span class="sd">        random_state : RandomState</span>
+<span class="sd">            Random state for reproducible results.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        samples : ndarray of shape (n_samples, len(baseline_pred))</span>
+<span class="sd">            Sample predictions with AR noise (same scale as training data).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">ar_coef_</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ar_intercept_</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> \
+            <span class="s2">&quot;AR coefficients must be set before generating samples&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">ar_noise_loc_</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ar_noise_scale_</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> \
+            <span class="s2">&quot;AR noise distribution parameters must be set before generating samples&quot;</span>
+
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ar_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">ar_lags</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ar_config</span><span class="o">.</span><span class="n">lags</span><span class="p">)</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">baseline_pred</span><span class="p">)</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ar_lags</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="n">a</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">ar_config</span><span class="o">.</span><span class="n">lags</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">ar_coef_</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">noise</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">laplace</span><span class="o">.</span><span class="n">rvs</span><span class="p">(</span>
+            <span class="n">loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ar_noise_loc_</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ar_noise_scale_</span><span class="p">,</span>
+            <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">length</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">ar_lags</span><span class="p">),</span> <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Preserve each path&#39;s original filter state and burn-in.</span>
+        <span class="n">ar_noise</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">lfilter</span><span class="p">(</span>
+            <span class="p">[</span><span class="mf">1.0</span><span class="p">],</span> <span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ar_intercept_</span> <span class="o">+</span> <span class="n">noise</span><span class="p">[:,</span> <span class="n">ar_lags</span><span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">zi</span><span class="o">=</span><span class="n">noise</span><span class="p">[:,</span> <span class="p">:</span><span class="n">ar_lags</span><span class="p">][:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">baseline_pred</span> <span class="o">+</span> <span class="n">ar_noise</span><span class="p">[:,</span> <span class="o">-</span><span class="n">length</span><span class="p">:]</span></div>
+
+
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;Estimator&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;EstimatorConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MultiPeriodicConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SplineConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;LinearConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ArConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;TrendConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;OutlierConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SolverConfig&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SolverOptionValue&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;TrendType&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;get_recommended_periods&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PERIOD_HOURLY_DAILY&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PERIOD_HOURLY_WEEKLY&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PERIOD_HOURLY_YEARLY&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PERIOD_DAILY_YEARLY&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PERIOD_WEEKLY_YEARLY&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PERIOD_MONTHLY_YEARLY&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PERIOD_QUARTERLY_YEARLY&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PERIOD_YEARLY_YEARLY&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Alliance for Sustainable Energy, LLC and Nimish Telang.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
