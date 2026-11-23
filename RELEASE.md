@@ -1,19 +1,8 @@
 # Release process
 
-This project publishes Python distributions from GitHub Actions using PyPI
-trusted publishing. The package version is declared in `pyproject.toml`; the
-runtime `tsgam.__version__` is read from installed package metadata.
-
-## One-time PyPI setup
-
-Configure a trusted publisher for this repository in PyPI:
-
-- GitHub owner: `cvxgrp`
-- Repository name: `tsgam`
-- Workflow filename: `release.yml`
-- Environment: leave blank unless the workflow is later updated to use one
-
-No long-lived PyPI API token is required.
+TSGAM uses Git tags for releases. The tag should match the version declared in
+`pyproject.toml`. The runtime `tsgam.__version__` comes from the installed
+package metadata.
 
 ## Prepare a release
 
@@ -34,12 +23,13 @@ No long-lived PyPI API token is required.
    uv run --with twine twine check dist/*
    ```
 
-4. Commit the version change.
-5. Create and push a matching tag:
+4. Once the release changes are on `main`, tag the release commit and push the tag:
 
    ```bash
    git tag v0.1.0
-   git push origin main v0.1.0
+   git push origin v0.1.0
    ```
 
-The release workflow publishes to PyPI only for tags matching `v*.*.*`.
+Pushing a tag matching `v*.*.*` runs the **Release** workflow. After the checks
+pass, you can download the wheel and source distribution from the
+`distributions` artifact on the workflow run.
